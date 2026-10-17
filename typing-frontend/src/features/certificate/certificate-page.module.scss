@@ -1,0 +1,257 @@
+.heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: clamp(40px, 5vw, 80px);
+}
+
+.eyebrow,
+.cardEyebrow,
+.checklist > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.heading h1 {
+  margin: var(--space-4) 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(56px, 7vw, 112px);
+  font-weight: 400;
+  letter-spacing: -0.075em;
+  line-height: 0.9;
+}
+
+.heading h1 em {
+  font-style: italic;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.95fr);
+  gap: clamp(18px, 2vw, 32px);
+  align-items: stretch;
+}
+
+.claimCard,
+.issuedCard {
+  min-height: 100%;
+  padding: clamp(24px, 3vw, 44px);
+}
+
+.claimCard {
+  display: grid;
+  gap: clamp(24px, 2.4vw, 36px);
+}
+
+.certificate {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.certificateFrame {
+  display: grid;
+  min-height: clamp(250px, 23vw, 360px);
+  place-items: center;
+  padding: clamp(18px, 2vw, 32px);
+  border: 2px solid var(--text);
+  background: #fffefa;
+}
+
+.certificateBody {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.certificateLabel {
+  margin: 0;
+  color: #656159;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.certificateBody h2 {
+  margin: clamp(24px, 3vw, 40px) 0 var(--space-4);
+  color: #24231f;
+  font-family: var(--font-display);
+  font-size: clamp(40px, 5vw, 78px);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.065em;
+  line-height: 0.92;
+}
+
+.certificateScore {
+  color: #24231f;
+  font-family: var(--font-mono);
+  font-size: clamp(26px, 2.4vw, 38px);
+  font-weight: 500;
+}
+
+.certificateMeta {
+  margin: var(--space-3) 0 0;
+  color: #656159;
+  font-size: clamp(14px, 1.2vw, 18px);
+}
+
+.certificateFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.certificateFooter span:last-child {
+  text-align: right;
+}
+
+.claimActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.claimActions p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.issuedCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.issuedCard h2 {
+  max-width: 540px;
+  margin: clamp(24px, 3vw, 48px) 0 var(--space-4);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(38px, 4.3vw, 68px);
+  font-weight: 400;
+  letter-spacing: -0.065em;
+  line-height: 0.94;
+}
+
+.issuedDescription {
+  max-width: 560px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: clamp(16px, 1.45vw, 22px);
+  line-height: 1.45;
+}
+
+.verifiedResult {
+  margin: var(--space-6) 0 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.checklist {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: auto;
+  padding-top: clamp(32px, 5vw, 78px);
+}
+
+.checklist ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checklist li {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  gap: var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: clamp(16px, 1.35vw, 21px);
+}
+
+.checklist li > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: 50%;
+  color: var(--accent-contrast);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.checklistItem--complete {
+  color: var(--text) !important;
+}
+
+.checklistItem--complete > span {
+  border-style: solid !important;
+  border-color: var(--accent) !important;
+  background: var(--accent);
+}
+
+.nameDialogContent {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.dialogNotice {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .issuedCard {
+    min-height: 500px;
+  }
+}
+
+@media (max-width: 620px) {
+  .heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .heading h1 {
+    font-size: clamp(52px, 15vw, 76px);
+  }
+
+  .claimCard,
+  .issuedCard {
+    padding: 24px 20px;
+  }
+
+  .certificateFrame {
+    min-height: 250px;
+  }
+
+  .certificateFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .certificateFooter span:last-child {
+    text-align: left;
+  }
+}

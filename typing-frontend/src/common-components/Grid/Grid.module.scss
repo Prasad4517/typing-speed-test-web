@@ -1,0 +1,32 @@
+.grid {
+  display: grid;
+}
+.grid--1 {
+  grid-template-columns: 1fr;
+}
+.grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.grid--sm {
+  gap: var(--space-2);
+}
+.grid--md {
+  gap: var(--space-4);
+}
+.grid--lg {
+  gap: var(--space-6);
+}
+
+@media (max-width: 720px) {
+  .grid--2,
+  .grid--3,
+  .grid--4 {
+    grid-template-columns: 1fr;
+  }
+}

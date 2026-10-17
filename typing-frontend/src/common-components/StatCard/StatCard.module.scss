@@ -1,0 +1,25 @@
+.card {
+  min-height: 150px;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+.label {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.value {
+  margin-top: var(--space-6);
+  color: var(--text);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 48px;
+  letter-spacing: -0.08em;
+}
+.detail {
+  color: var(--text-muted);
+  font-size: 11px;
+}

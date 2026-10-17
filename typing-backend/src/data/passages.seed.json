@@ -1,0 +1,362 @@
+[
+  {
+    "key": "p-001",
+    "text": "A clear morning gives the mind room to settle. Begin with one small task, keep your attention close, and let steady progress become the quiet measure of a useful day.",
+    "difficulty": "easy",
+    "category": "focus"
+  },
+  {
+    "key": "p-002",
+    "text": "Good practice feels simple at first. Choose a comfortable pace, notice each movement, and repeat the same motion until your hands begin to remember the shape of the work. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "practice"
+  },
+  {
+    "key": "p-003",
+    "text": "The best tools disappear while you use them. They leave enough space for thought, respond without friction, and help a person turn a rough idea into something clear. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "craft"
+  },
+  {
+    "key": "p-004",
+    "text": "A short walk can change the shape of an afternoon. Fresh air, quiet streets, and a few minutes away from a screen often return attention with better balance. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "wellbeing"
+  },
+  {
+    "key": "p-005",
+    "text": "Learning grows through small corrections. When a mistake appears, pause long enough to understand it, make one adjustment, and try again without carrying frustration forward. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "learning"
+  },
+  {
+    "key": "p-006",
+    "text": "A tidy desk is not a requirement for good work, but a thoughtful arrangement can make the next action obvious. Keep what matters near and move the rest aside. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "work"
+  },
+  {
+    "key": "p-007",
+    "text": "Patience is a practical skill. It helps you wait for a better answer, listen to a difficult question, and keep working when the first attempt is not enough. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "habits"
+  },
+  {
+    "key": "p-008",
+    "text": "Every useful habit begins with a moment that is easy to repeat. Make the starting point small, connect it to a familiar routine, and allow consistency to do the heavy lifting.",
+    "difficulty": "easy",
+    "category": "habits"
+  },
+  {
+    "key": "p-009",
+    "text": "A friendly message can change someone’s day. Say what you mean, offer a little context, and leave the other person with a clear next step instead of another puzzle. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "communication"
+  },
+  {
+    "key": "p-010",
+    "text": "Rain makes familiar places feel new. Windows become mirrors, roads carry a soft rhythm, and ordinary rooms invite a slower kind of attention. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "observation"
+  },
+  {
+    "key": "p-011",
+    "text": "Strong results usually come from a series of ordinary choices. Show up, remove one source of noise, and keep the promise you made to yourself yesterday. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "discipline"
+  },
+  {
+    "key": "p-012",
+    "text": "A question is often more useful than a quick answer. It can reveal an assumption, open a new path, and help a group agree on what problem they are solving.",
+    "difficulty": "easy",
+    "category": "thinking"
+  },
+  {
+    "key": "p-013",
+    "text": "When the day feels crowded, write down the next three actions. A short list makes invisible pressure visible and gives your attention somewhere specific to land. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "planning"
+  },
+  {
+    "key": "p-014",
+    "text": "Good feedback is specific and kind. Point to the moment that needs work, describe the effect, and suggest a change that another person can actually try. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "communication"
+  },
+  {
+    "key": "p-015",
+    "text": "A calm beginning does not guarantee an easy day. It does give you a place to return when plans change, energy drops, or an unexpected request arrives. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "resilience"
+  },
+  {
+    "key": "p-016",
+    "text": "The first draft only needs to exist. Once an idea has a shape, you can move pieces around, remove what is weak, and find the sentence that says it best.",
+    "difficulty": "easy",
+    "category": "writing"
+  },
+  {
+    "key": "p-017",
+    "text": "Notice the difference between busy and useful. Busy fills the hours, while useful work creates a result that makes the next decision easier. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "focus"
+  },
+  {
+    "key": "p-018",
+    "text": "A reliable routine leaves room for change. Keep the parts that help, release the parts that no longer fit, and adjust before a small problem becomes a large one. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "systems"
+  },
+  {
+    "key": "p-019",
+    "text": "Rest is part of practice, not a reward for finishing everything. A rested mind sees patterns sooner and makes fewer choices from a place of hurry. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "wellbeing"
+  },
+  {
+    "key": "p-020",
+    "text": "Make the next step visible. Put the document where you will find it, name the task clearly, and leave a note that saves your future self a minute. Keep the pace steady and return to the next clear step.",
+    "difficulty": "easy",
+    "category": "planning"
+  },
+  {
+    "key": "p-021",
+    "text": "A useful system is not defined by how impressive it looks. Its value comes from what happens on an ordinary Tuesday, when nobody is watching and the inputs are imperfect.",
+    "difficulty": "medium",
+    "category": "systems"
+  },
+  {
+    "key": "p-022",
+    "text": "Attention behaves like a limited room. Every open tab, unfinished thought, and unspoken decision takes a chair, so deliberate work begins by choosing what may stay. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "focus"
+  },
+  {
+    "key": "p-023",
+    "text": "A clear interface teaches through response. When an action succeeds, the system should make that success legible; when it fails, the next recovery step should be close at hand. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "design"
+  },
+  {
+    "key": "p-024",
+    "text": "Good writing is a form of hospitality. It anticipates the reader’s questions, removes unnecessary turns, and gives each idea enough space to arrive without competing with the next. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "writing"
+  },
+  {
+    "key": "p-025",
+    "text": "Progress can hide inside repetition. The same exercise may feel unchanged for a week, then suddenly a movement becomes smoother because the mind has quietly built a better path. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "learning"
+  },
+  {
+    "key": "p-026",
+    "text": "A trustworthy product explains its boundaries. It tells people what is stored, why a decision was made, and what they can do when the expected path does not work. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "trust"
+  },
+  {
+    "key": "p-027",
+    "text": "When a plan depends on one perfect condition, it is not yet resilient. Add a fallback, name the risky assumption, and decide how you will learn when reality disagrees. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "planning"
+  },
+  {
+    "key": "p-028",
+    "text": "The quality of a decision depends on the question beneath it. Before comparing options, define the outcome, the constraints, and the cost of choosing too slowly. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "thinking"
+  },
+  {
+    "key": "p-029",
+    "text": "A focused team does not avoid disagreement. It gives disagreement a useful shape by separating evidence from preference, making tradeoffs explicit, and returning to the shared goal. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "teams"
+  },
+  {
+    "key": "p-030",
+    "text": "Small delays are easy to ignore until they compound. A faster workflow often begins with one careful measurement, followed by the removal of a repeated point of friction. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "systems"
+  },
+  {
+    "key": "p-031",
+    "text": "Confidence is strongest when it is paired with a way to be corrected. Test the belief, listen for contradictory evidence, and change direction without treating revision as failure. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "learning"
+  },
+  {
+    "key": "p-032",
+    "text": "A good meeting leaves behind more than a feeling of alignment. It names the decision, assigns the next action, and records enough context that an absent person can understand the result.",
+    "difficulty": "medium",
+    "category": "teams"
+  },
+  {
+    "key": "p-033",
+    "text": "The most useful metrics are connected to a behavior you can influence. A number without a decision attached becomes decoration, while a modest measure can guide a meaningful change. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "measurement"
+  },
+  {
+    "key": "p-034",
+    "text": "Reliable software is designed for the moments when inputs are incomplete. Validate early, fail with a clear explanation, and preserve enough information to recover without repeating every step. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "engineering"
+  },
+  {
+    "key": "p-035",
+    "text": "A thoughtful review is not a search for a perfect past. It is a way to make the next attempt cheaper by turning an unclear surprise into a visible rule or test.",
+    "difficulty": "medium",
+    "category": "engineering"
+  },
+  {
+    "key": "p-036",
+    "text": "Creative work needs both motion and selection. Generate enough possibilities to escape the first obvious answer, then choose with criteria that match the problem rather than the mood. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "craft"
+  },
+  {
+    "key": "p-037",
+    "text": "Clear ownership reduces invisible waiting. When one person knows the next decision belongs to them, the rest of the group can contribute without duplicating effort or guessing. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "teams"
+  },
+  {
+    "key": "p-038",
+    "text": "A boundary is a design tool. It can protect a quiet hour, limit an unsafe input, or keep a growing feature from carrying responsibilities that belong somewhere else. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "design"
+  },
+  {
+    "key": "p-039",
+    "text": "Long-term improvement rarely looks dramatic from inside the process. It looks like fewer repeated errors, shorter recovery time, and a growing ability to notice problems earlier. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "resilience"
+  },
+  {
+    "key": "p-040",
+    "text": "The best explanation respects the listener’s time without hiding the important details. Start with the outcome, then reveal the reasoning in the order needed to make it useful. Keep the pace steady and return to the next clear step.",
+    "difficulty": "medium",
+    "category": "communication"
+  },
+  {
+    "key": "p-041",
+    "text": "A production system is a promise made under pressure. It must remain understandable when traffic rises, dependencies slow down, data is surprising, and the original author is unavailable. Keep the pace steady and return to the next clear step.",
+    "difficulty": "hard",
+    "category": "engineering"
+  },
+  {
+    "key": "p-042",
+    "text": "Robust architecture is less about predicting every future feature than about preserving safe seams between responsibilities. Stable boundaries let storage, delivery, and policy evolve at different speeds. Keep the pace steady and return to the next clear step.",
+    "difficulty": "hard",
+    "category": "architecture"
+  },
+  {
+    "key": "p-043",
+    "text": "A certificate carries more weight when its result can be explained. The score should have a traceable session, a defined calculation, a verifiable timestamp, and a clear statement of what was measured.",
+    "difficulty": "hard",
+    "category": "trust"
+  },
+  {
+    "key": "p-044",
+    "text": "An anonymous identity can support useful continuity without pretending to be authentication. It should be generated carefully, scoped to the client, transmitted consistently, and replaceable when its trust boundary changes.",
+    "difficulty": "hard",
+    "category": "identity"
+  },
+  {
+    "key": "p-045",
+    "text": "A server should never accept a client’s score as a fact. It can accept the user’s typed text and elapsed claim as input, then compare them with the session it created before storing a result.",
+    "difficulty": "hard",
+    "category": "security"
+  },
+  {
+    "key": "p-046",
+    "text": "Concurrency turns a simple submit button into a state transition. A conditional update is needed so two requests racing from one browser cannot both transform a started session into a submitted score.",
+    "difficulty": "hard",
+    "category": "databases"
+  },
+  {
+    "key": "p-047",
+    "text": "File-backed content is still a data source and deserves a boundary. A repository can validate and index the file once, expose a small interface, and let a later database implementation preserve the service contract.",
+    "difficulty": "hard",
+    "category": "architecture"
+  },
+  {
+    "key": "p-048",
+    "text": "Timing validation must account for human behavior. Measuring from the first keystroke avoids punishing a pause before typing, while comparing against server session age prevents a client from claiming impossible elapsed time.",
+    "difficulty": "hard",
+    "category": "security"
+  },
+  {
+    "key": "p-049",
+    "text": "A rate limit is not a substitute for authorization. It reduces abuse at the edge, while ownership checks, input validation, and atomic state changes protect the meaning of a session deeper in the system.",
+    "difficulty": "hard",
+    "category": "security"
+  },
+  {
+    "key": "p-050",
+    "text": "A useful API contract names more than endpoints. It defines headers, request shapes, success fields, failure envelopes, pagination rules, and the distinctions clients must preserve in their user experience. Keep the pace steady and return to the next clear step.",
+    "difficulty": "hard",
+    "category": "apis"
+  },
+  {
+    "key": "p-051",
+    "text": "A resilient frontend treats the network as a state, not an implementation detail. Loading, success, empty, retryable failure, and expired-session states should be represented deliberately rather than inferred from missing values.",
+    "difficulty": "hard",
+    "category": "frontend"
+  },
+  {
+    "key": "p-052",
+    "text": "Observability should answer what happened without collecting what was never needed. Request identifiers, route timings, and outcome codes help trace a failure while avoiding raw text, secrets, and unnecessary personal data.",
+    "difficulty": "hard",
+    "category": "operations"
+  },
+  {
+    "key": "p-053",
+    "text": "A migration is part of the product, not merely a deployment artifact. It should be reviewable, repeatable, compatible with the selected database, and paired with a rollback or recovery story where practical.",
+    "difficulty": "hard",
+    "category": "databases"
+  },
+  {
+    "key": "p-054",
+    "text": "When a result has commercial value, trust must exist before payment does. Define the scoring rules, protect the session lifecycle, make verification possible, and document the limits of the certificate.",
+    "difficulty": "hard",
+    "category": "product"
+  },
+  {
+    "key": "p-055",
+    "text": "Dependency choices become architectural decisions when they touch persistence, validation, or identity. Prefer maintained components, pin compatible versions, expose integration boundaries, and verify behavior against the actual runtime. Keep the pace steady and return to the next clear step.",
+    "difficulty": "hard",
+    "category": "engineering"
+  },
+  {
+    "key": "p-056",
+    "text": "A service that receives repositories as parameters can be tested without a live database. That separation makes business rules visible, keeps integration tests honest, and prevents infrastructure details from becoming hidden inputs.",
+    "difficulty": "hard",
+    "category": "testing"
+  },
+  {
+    "key": "p-057",
+    "text": "A cursor is more reliable than an offset when history changes between requests. Use a stable ordering key, encode the boundary carefully, and return enough information for the client to request the next page.",
+    "difficulty": "hard",
+    "category": "apis"
+  },
+  {
+    "key": "p-058",
+    "text": "A rejected result should remain explainable without becoming a successful statistic. Store the rejection state and reason for audit, exclude it from aggregates, and return an error that helps the client recover.",
+    "difficulty": "hard",
+    "category": "security"
+  },
+  {
+    "key": "p-059",
+    "text": "A system earns operational confidence through boring details: UTC timestamps, bounded inputs, graceful shutdown, consistent errors, health checks, reproducible seeds, and tests that exercise the unhappy path. Keep the pace steady and return to the next clear step.",
+    "difficulty": "hard",
+    "category": "operations"
+  },
+  {
+    "key": "p-060",
+    "text": "Scale is not only a traffic problem. It is also a change problem, a support problem, and a trust problem. Clear seams, durable contracts, and measured behavior make future growth less hazardous.",
+    "difficulty": "hard",
+    "category": "architecture"
+  }
+]

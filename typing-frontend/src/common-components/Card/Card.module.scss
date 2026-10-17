@@ -1,0 +1,11 @@
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.card--dark {
+  border-color: transparent;
+  color: var(--surface);
+  background: var(--dark-surface);
+}

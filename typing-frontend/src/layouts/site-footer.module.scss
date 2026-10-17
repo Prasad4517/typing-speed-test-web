@@ -1,0 +1,36 @@
+.footer {
+  margin-top: var(--space-16);
+  border-top: 1px solid var(--border);
+}
+.inner {
+  width: min(calc(100% - clamp(32px, 7vw, 136px)), 1800px);
+  display: grid;
+  grid-template-columns: 1.5fr 1fr auto;
+  gap: var(--space-8);
+  padding: var(--space-8) 0;
+  margin-inline: auto;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.inner strong {
+  color: var(--text);
+}
+.inner p {
+  margin: var(--space-2) 0 0;
+}
+.inner nav {
+  display: flex;
+  gap: var(--space-4);
+}
+.inner small {
+  align-self: end;
+}
+@media (max-width: 720px) {
+  .inner {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  .inner nav {
+    flex-wrap: wrap;
+  }
+}

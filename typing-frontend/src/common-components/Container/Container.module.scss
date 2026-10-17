@@ -1,0 +1,14 @@
+.container {
+  width: min(calc(100% - clamp(32px, 7vw, 136px)), 1800px);
+  margin-inline: auto;
+}
+
+.container--sm {
+  max-width: 760px;
+}
+.container--md {
+  max-width: 980px;
+}
+.container--lg {
+  max-width: 1800px;
+}

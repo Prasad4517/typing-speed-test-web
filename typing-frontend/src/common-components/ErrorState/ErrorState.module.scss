@@ -1,0 +1,21 @@
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+.error p {
+  margin: 0;
+  font-size: 13px;
+}
+@media (max-width: 520px) {
+  .error {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

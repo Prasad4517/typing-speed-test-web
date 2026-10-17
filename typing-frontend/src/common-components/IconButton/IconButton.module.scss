@@ -1,0 +1,18 @@
+.button {
+  display: inline-grid;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+}
+.button:hover {
+  background: var(--surface-2);
+}
+.button--sm {
+  min-width: 36px;
+  min-height: 36px;
+}

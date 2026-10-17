@@ -1,0 +1,25 @@
+.wrapper {
+  position: relative;
+  display: inline-flex;
+}
+.tip {
+  position: absolute;
+  z-index: var(--z-popover);
+  bottom: calc(100% + var(--space-2));
+  left: 50%;
+  width: max-content;
+  max-width: 220px;
+  padding: var(--space-2);
+  transform: translateX(-50%);
+  border-radius: var(--radius-sm);
+  color: var(--surface);
+  background: var(--dark-surface);
+  font-size: 11px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+.wrapper:hover .tip,
+.wrapper:focus-within .tip {
+  opacity: 1;
+}

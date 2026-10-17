@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum TestMode {
+  PASSAGE
+  TIMED
+}
+
+enum TestStatus {
+  STARTED
+  SUBMITTED
+  REJECTED
+}
+
+model TestSession {
+  id             String     @id @default(uuid()) @db.Char(36)
+  clientId       String     @db.Char(36)
+  mode           TestMode
+  passageKey     String?    @db.VarChar(64)
+  text           String     @db.Text
+  difficulty     String?    @db.VarChar(16)
+  duration       Int?
+  createdAt      DateTime   @default(now()) @db.DateTime(3)
+  expiresAt      DateTime   @db.DateTime(3)
+  submittedAt    DateTime?  @db.DateTime(3)
+  typedLength    Int?
+  correctChars   Int?
+  incorrectChars Int?
+  elapsedMs      Int?
+  wpm            Float?
+  rawWpm         Float?
+  accuracy       Float?
+  status         TestStatus @default(STARTED)
+  rejectReason   String?    @db.VarChar(255)
+
+  @@index([clientId, createdAt])
+  @@index([status, expiresAt])
+}
