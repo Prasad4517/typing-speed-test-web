@@ -1,7 +1,7 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildApp } from '../src/app.js';
+import { buildApp } from '../src/application.js';
 import { config } from '../src/config/env.js';
 import { createFakeRepositories } from './helpers.js';
 
