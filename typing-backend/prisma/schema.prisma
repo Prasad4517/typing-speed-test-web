@@ -17,6 +17,56 @@ enum TestStatus {
   REJECTED
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id                  String               @id @default(uuid()) @db.Char(36)
+  email               String               @unique @db.VarChar(254)
+  fullName            String               @db.VarChar(150)
+  passwordHash        String               @db.VarChar(255)
+  role                UserRole             @default(USER)
+  emailVerifiedAt     DateTime?            @db.DateTime(3)
+  createdAt           DateTime             @default(now()) @db.DateTime(3)
+  updatedAt           DateTime             @updatedAt @db.DateTime(3)
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model RefreshToken {
+  id                String        @id @db.Char(36)
+  familyId          String        @db.Char(36)
+  userId            String        @db.Char(36)
+  tokenHash         String        @unique @db.Char(64)
+  expiresAt         DateTime      @db.DateTime(3)
+  revokedAt         DateTime?     @db.DateTime(3)
+  replacedByTokenId String?       @unique @db.Char(36)
+  userAgent         String?       @db.VarChar(512)
+  ipAddress         String?       @db.VarChar(45)
+  createdAt         DateTime      @default(now()) @db.DateTime(3)
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedByToken   RefreshToken? @relation("RefreshTokenReplacement", fields: [replacedByTokenId], references: [id], onDelete: SetNull)
+  replacedToken     RefreshToken? @relation("RefreshTokenReplacement")
+
+  @@index([userId, createdAt])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Char(36)
+  userId    String    @db.Char(36)
+  tokenHash String    @unique @db.Char(64)
+  expiresAt DateTime  @db.DateTime(3)
+  usedAt    DateTime? @db.DateTime(3)
+  createdAt DateTime  @default(now()) @db.DateTime(3)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
 model TestSession {
   id             String     @id @default(uuid()) @db.Char(36)
   clientId       String     @db.Char(36)

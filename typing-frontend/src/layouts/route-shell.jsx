@@ -1,30 +1,17 @@
-'use client';
-
-import { usePathname } from 'next/navigation';
-
 import { SiteFooter } from './site-footer';
-import { HomeNavigation } from './home-navigation';
 import { SiteHeader } from './site-header';
 import styles from './route-shell.module.scss';
 
-export function RouteShell({ children }) {
-  const pathname = usePathname();
-  const isTestRoute = pathname === '/';
-
-  if (isTestRoute) {
-    return (
-      <div className={styles.testShell}>
-        <main className={styles.testMain}>{children}</main>
-        <HomeNavigation />
-      </div>
-    );
-  }
-
+export function RouteShell({ children, user, onSignOut, isAuthLoading }) {
   return (
-    <>
-      <SiteHeader />
-      <main>{children}</main>
+    <div className={styles.shell}>
+      <SiteHeader
+        isAuthLoading={isAuthLoading}
+        onSignOut={onSignOut}
+        user={user}
+      />
+      <main className={styles.main}>{children}</main>
       <SiteFooter />
-    </>
+    </div>
   );
 }

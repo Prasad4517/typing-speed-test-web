@@ -31,9 +31,37 @@ const envSchema = z.object({
   SESSION_TTL_SECONDS: z.coerce.number().int().positive(),
   TIMING_TOLERANCE_MS: z.coerce.number().int().nonnegative(),
   MIN_ELAPSED_MS: z.coerce.number().int().positive(),
+  JWT_ACCESS_SECRET: z.string().min(32),
+  JWT_ISSUER: z.string().min(1).max(120),
+  JWT_AUDIENCE: z.string().min(1).max(120),
+  ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90),
+  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(1440),
+  AUTH_COOKIE_SECURE: z.enum(['true', 'false']),
 });
 
-const parsedEnv = envSchema.safeParse({
+const environmentSchema = envSchema.superRefine((value, context) => {
+  if (value.NODE_ENV === 'production' && value.AUTH_COOKIE_SECURE !== 'true') {
+    context.addIssue({
+      code: 'custom',
+      path: ['AUTH_COOKIE_SECURE'],
+      message: 'AUTH_COOKIE_SECURE must be true in production.',
+    });
+  }
+
+  if (
+    value.NODE_ENV === 'production' &&
+    value.JWT_ACCESS_SECRET.includes('development-only')
+  ) {
+    context.addIssue({
+      code: 'custom',
+      path: ['JWT_ACCESS_SECRET'],
+      message: 'JWT_ACCESS_SECRET must be replaced with a production secret.',
+    });
+  }
+});
+
+const parsedEnv = environmentSchema.safeParse({
   NODE_ENV: process.env.NODE_ENV,
   PORT: process.env.PORT,
   CORS_ORIGIN: process.env.CORS_ORIGIN,
@@ -45,6 +73,13 @@ const parsedEnv = envSchema.safeParse({
   SESSION_TTL_SECONDS: process.env.SESSION_TTL_SECONDS,
   TIMING_TOLERANCE_MS: process.env.TIMING_TOLERANCE_MS,
   MIN_ELAPSED_MS: process.env.MIN_ELAPSED_MS,
+  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
+  JWT_ISSUER: process.env.JWT_ISSUER,
+  JWT_AUDIENCE: process.env.JWT_AUDIENCE,
+  ACCESS_TOKEN_TTL_SECONDS: process.env.ACCESS_TOKEN_TTL_SECONDS,
+  REFRESH_TOKEN_TTL_DAYS: process.env.REFRESH_TOKEN_TTL_DAYS,
+  PASSWORD_RESET_TTL_MINUTES: process.env.PASSWORD_RESET_TTL_MINUTES,
+  AUTH_COOKIE_SECURE: process.env.AUTH_COOKIE_SECURE,
 });
 
 if (!parsedEnv.success) {
@@ -74,5 +109,12 @@ export const config = Object.freeze({
   sessionTtlSeconds: parsedEnv.data.SESSION_TTL_SECONDS,
   timingToleranceMs: parsedEnv.data.TIMING_TOLERANCE_MS,
   minElapsedMs: parsedEnv.data.MIN_ELAPSED_MS,
+  jwtAccessSecret: parsedEnv.data.JWT_ACCESS_SECRET,
+  jwtIssuer: parsedEnv.data.JWT_ISSUER,
+  jwtAudience: parsedEnv.data.JWT_AUDIENCE,
+  accessTokenTtlSeconds: parsedEnv.data.ACCESS_TOKEN_TTL_SECONDS,
+  refreshTokenTtlDays: parsedEnv.data.REFRESH_TOKEN_TTL_DAYS,
+  passwordResetTtlMinutes: parsedEnv.data.PASSWORD_RESET_TTL_MINUTES,
+  authCookieSecure: parsedEnv.data.AUTH_COOKIE_SECURE === 'true',
   isProduction: parsedEnv.data.NODE_ENV === 'production',
 });

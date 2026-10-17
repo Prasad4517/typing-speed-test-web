@@ -44,6 +44,7 @@ export async function request(
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
       cache: 'no-store',
+      credentials: 'include',
     });
     const payload = await response.json().catch(() => null);
 

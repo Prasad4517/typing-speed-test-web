@@ -8,5 +8,9 @@ export const LIMITS = Object.freeze({
   maxWords: 1000,
   testStartRateLimit: 20,
   testSubmitRateLimit: 30,
+  authSignUpRateLimit: 5,
+  authLoginRateLimit: 5,
+  authRefreshRateLimit: 20,
+  authPasswordResetRateLimit: 5,
   rateLimitWindow: '1 minute',
 });

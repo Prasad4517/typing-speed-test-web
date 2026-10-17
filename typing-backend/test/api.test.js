@@ -10,6 +10,36 @@ const clients = {
   two: '22222222-2222-4222-8222-222222222222',
 };
 const apps = [];
+const password = 'correct-horse-battery-staple';
+
+function getSetCookie(response, name) {
+  const cookies = response.headers['set-cookie'];
+  const allCookies = Array.isArray(cookies) ? cookies : [cookies];
+  const matchedCookie = allCookies.find((cookie) =>
+    cookie?.startsWith(`${name}=`),
+  );
+
+  assert.ok(matchedCookie, `Expected ${name} cookie to be set.`);
+  return matchedCookie;
+}
+
+function getCookie(response, name) {
+  const matchedCookie = getSetCookie(response, name);
+  return matchedCookie.split(';', 1)[0];
+}
+
+async function signUp(app, overrides = {}) {
+  return app.inject({
+    method: 'POST',
+    url: '/api/auth/signup',
+    payload: {
+      fullName: 'Ada Lovelace',
+      email: 'ada@example.com',
+      password,
+      ...overrides,
+    },
+  });
+}
 
 function createApp() {
   const app = buildApp({
@@ -48,6 +78,88 @@ test('CORS headers are present on preflight and API responses', async () => {
   });
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers['access-control-allow-origin'], origin);
+  assert.equal(response.headers['access-control-allow-credentials'], 'true');
+});
+
+test('sign up sets HttpOnly auth cookies and /me reads the access token', async () => {
+  const app = createApp();
+  const response = await signUp(app);
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.json().user.email, 'ada@example.com');
+  assert.equal(response.json().user.passwordHash, undefined);
+  assert.match(getSetCookie(response, 'keystroke_access'), /HttpOnly/);
+  assert.match(getSetCookie(response, 'keystroke_refresh'), /HttpOnly/);
+
+  const me = await app.inject({
+    method: 'GET',
+    url: '/api/me',
+    headers: { cookie: getCookie(response, 'keystroke_access') },
+  });
+  assert.equal(me.statusCode, 200);
+  assert.equal(me.json().email, 'ada@example.com');
+
+  const updatedProfile = await app.inject({
+    method: 'PATCH',
+    url: '/api/me',
+    headers: { cookie: getCookie(response, 'keystroke_access') },
+    payload: { fullName: 'Ada Byron Lovelace' },
+  });
+  assert.equal(updatedProfile.statusCode, 200);
+  assert.equal(updatedProfile.json().fullName, 'Ada Byron Lovelace');
+});
+
+test('login returns the same unauthorized response for an unknown email and wrong password', async () => {
+  const app = createApp();
+  await signUp(app);
+
+  const unknownEmail = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: { email: 'unknown@example.com', password },
+  });
+  const wrongPassword = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: { email: 'ada@example.com', password: 'wrong-password' },
+  });
+
+  assert.equal(unknownEmail.statusCode, 401);
+  assert.equal(wrongPassword.statusCode, 401);
+  assert.equal(unknownEmail.json().error.message, 'Invalid email or password.');
+  assert.equal(
+    wrongPassword.json().error.message,
+    'Invalid email or password.',
+  );
+});
+
+test('refresh rotates a session and rejects refresh-token replay for the entire family', async () => {
+  const app = createApp();
+  const signUpResponse = await signUp(app);
+  const firstRefreshCookie = getCookie(signUpResponse, 'keystroke_refresh');
+
+  const rotated = await app.inject({
+    method: 'POST',
+    url: '/api/auth/refresh',
+    headers: { cookie: firstRefreshCookie },
+  });
+  assert.equal(rotated.statusCode, 200);
+  const secondRefreshCookie = getCookie(rotated, 'keystroke_refresh');
+  assert.notEqual(secondRefreshCookie, firstRefreshCookie);
+
+  const replay = await app.inject({
+    method: 'POST',
+    url: '/api/auth/refresh',
+    headers: { cookie: firstRefreshCookie },
+  });
+  assert.equal(replay.statusCode, 401);
+
+  const familyRevoked = await app.inject({
+    method: 'POST',
+    url: '/api/auth/refresh',
+    headers: { cookie: secondRefreshCookie },
+  });
+  assert.equal(familyRevoked.statusCode, 401);
 });
 
 test('start and submit returns a verified result', async () => {

@@ -70,6 +70,34 @@ The frontend creates an anonymous UUID v4 once per browser and sends it as `X-Cl
 
 The client timer starts at the first keystroke. On submit, the server accepts elapsed time only when it is no greater than the server-measured age of the session plus the configured tolerance. A pre-typing pause is therefore valid, while impossible elapsed time is rejected.
 
+## Authentication
+
+Authentication follows the same layering rule as every other API:
+
+```text
+auth.routes -> auth.controller -> auth.service -> auth.repository -> database
+```
+
+- Passwords are Argon2id hashes; plaintext passwords never leave the service
+  boundary or reach the database.
+- Access JWTs contain only `sub` and `role`, are signed with HS256, and expire
+  after the configured short lifetime.
+- Refresh tokens are opaque random values. Only a SHA-256 hash is stored in
+  `RefreshToken`; each refresh atomically revokes the old record and creates a
+  replacement in the same token family.
+- Reuse of a revoked refresh token revokes that family. Logout-all revokes every
+  refresh token for the authenticated user.
+- Access and refresh tokens are HttpOnly, secure in production, `SameSite=Lax`
+  cookies with deliberately narrow API paths. State-changing cookie requests
+  enforce the configured browser origin in production.
+- `User.emailVerifiedAt` is reserved for the certificate/payment eligibility
+  policy. Do not treat a registered email as verified until an audited email
+  verification flow is added.
+
+The anonymous `X-Client-Id` remains continuity for unauthenticated practice;
+it is not an account identity. Do not authorize paid certificates, payments, or
+private cross-device history using it.
+
 ## Moving passages to the database
 
 Passages currently come from `src/data/passages.seed.json` through `passages.repository.js`. The repository exposes selection operations rather than exposing the file itself. To move content to MySQL:

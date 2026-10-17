@@ -15,7 +15,8 @@ async function registerCors(app) {
 
       callback(new Error(`CORS origin is not allowed: ${origin}`), false);
     },
-    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Accept', 'Content-Type', 'X-Client-Id', 'X-Request-Id'],
     exposedHeaders: ['X-Request-Id'],
     optionsSuccessStatus: 204,

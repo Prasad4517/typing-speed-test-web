@@ -6,9 +6,10 @@
 - Frontend: Next.js App Router, JavaScript/JSX, SCSS, Zustand, Recharts, Motion.
 - Backend: Node.js ES modules, Fastify, Zod, Prisma 7, MySQL/MariaDB, and the MariaDB driver adapter.
 - Passages and words are currently validated from backend-owned JSON files.
-- The browser owns an anonymous UUID v4 `clientId`, stored in localStorage and sent as `X-Client-Id`.
+- The browser owns an anonymous UUID v4 `clientId`, stored in localStorage and sent as `X-Client-Id` for unauthenticated practice continuity.
 - The server creates and owns test sessions and is authoritative for final scores.
-- Leaderboard and authentication are deferred until identity and product policy are ready.
+- Authentication uses email/password accounts, Argon2id hashes, short-lived access JWTs, and rotating database-backed refresh-token sessions.
+- Leaderboard is deferred until its identity and public-data policy are ready.
 - Certificate generation and payment are future features. Submitted sessions already provide the server-verified record those features can consume.
 
 ## API phases currently implemented
@@ -17,6 +18,7 @@
 - File-backed content: `/api/passages/random`, `/api/words`
 - Test lifecycle: `/api/tests/start`, `/api/tests/:testId/submit`
 - Client analytics: `/api/tests/history`, `/api/stats/summary`
+- Authentication and profile: `/api/auth/*`, `GET /api/me`, `PATCH /api/me`
 
 ## Database model
 
@@ -27,5 +29,7 @@ The current Prisma migration creates `TestSession` with the exact text, anonymou
 - Start and apply the first migration against the configured MySQL/MariaDB database.
 - Run the backend smoke test against a live database.
 - Add certificate verification/generation as a separate audited workflow.
-- Add authenticated identity and public leaderboard policy.
+- Connect an approved email provider for password reset and email verification.
+- Link anonymous practice history to authenticated accounts under an explicit account-claim policy.
+- Add public leaderboard policy.
 - Add payment provider integration after the score/certificate contract is stable.

@@ -1,0 +1,98 @@
+.page {
+  display: grid;
+  flex: 1;
+  align-items: center;
+  padding-block: clamp(var(--space-10), 9vw, var(--space-16));
+}
+
+.card {
+  display: grid;
+  gap: var(--space-6);
+  padding: clamp(var(--space-6), 6vw, var(--space-10));
+}
+
+.heading h1 {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 7vw, 4.25rem);
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+}
+
+.heading p:not(.eyebrow),
+.security p {
+  max-width: 48ch;
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.form > :last-child {
+  margin-top: var(--space-2);
+}
+
+.textAction,
+.inlineAction {
+  padding: 0;
+  border: 0;
+  color: var(--text-muted);
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.textAction {
+  justify-self: start;
+  font-size: 0.875rem;
+}
+
+.inlineAction {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.switchPrompt {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.security {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+}
+
+.security h2 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+@media (max-width: 560px) {
+  .security {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

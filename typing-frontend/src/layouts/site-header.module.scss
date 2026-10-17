@@ -38,6 +38,13 @@
   align-items: center;
   gap: var(--space-2);
 }
+
+.accountLoading {
+  width: 84px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
 .menu {
   display: none;
 }

@@ -76,3 +76,9 @@ export class UnauthorizedError extends AppError {
     super(ERROR_CODES.UNAUTHORIZED, message, HTTP_STATUS.UNAUTHORIZED, details);
   }
 }
+
+export class ForbiddenError extends AppError {
+  constructor(message = 'You do not have permission to perform this action.') {
+    super(ERROR_CODES.FORBIDDEN, message, HTTP_STATUS.FORBIDDEN);
+  }
+}
