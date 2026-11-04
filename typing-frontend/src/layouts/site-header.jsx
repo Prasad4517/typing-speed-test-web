@@ -49,6 +49,32 @@ export function SiteHeader({ user, onSignOut, isAuthLoading = false }) {
               {item.label}
             </Link>
           ))}
+          {user ? (
+            <Link
+              aria-current={pathname === ROUTES.dashboard ? 'page' : undefined}
+              className={
+                pathname === ROUTES.dashboard ? styles.active : undefined
+              }
+              href={ROUTES.dashboard}
+              onClick={() => setOpen(false)}
+            >
+              Dashboard
+            </Link>
+          ) : null}
+          {user?.isAdmin ? (
+            <Link
+              aria-current={
+                pathname === ROUTES.adminDashboard ? 'page' : undefined
+              }
+              className={
+                pathname === ROUTES.adminDashboard ? styles.active : undefined
+              }
+              href={ROUTES.adminDashboard}
+              onClick={() => setOpen(false)}
+            >
+              Admin
+            </Link>
+          ) : null}
         </nav>
         <div className={styles.actions}>
           <ThemeToggle />

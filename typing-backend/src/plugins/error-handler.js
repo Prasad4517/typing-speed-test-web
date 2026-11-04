@@ -30,6 +30,9 @@ export default function registerErrorHandler(app) {
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AppError) {
+      if (error.retryAfterSeconds) {
+        reply.header('Retry-After', String(error.retryAfterSeconds));
+      }
       return reply
         .status(error.statusCode)
         .send(errorEnvelope(error.code, error.message, error.details));

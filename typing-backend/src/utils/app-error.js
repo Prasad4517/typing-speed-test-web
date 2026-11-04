@@ -40,13 +40,24 @@ export class ConflictError extends AppError {
 export class RateLimitError extends AppError {
   constructor(
     message = 'Too many requests. Please try again later.',
-    details = [],
+    retryAfterSeconds,
   ) {
     super(
       ERROR_CODES.RATE_LIMITED,
       message,
       HTTP_STATUS.TOO_MANY_REQUESTS,
-      details,
+      retryAfterSeconds ? [{ retryAfterSeconds }] : [],
+    );
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+export class DependencyUnavailableError extends AppError {
+  constructor(message = 'A required service is temporarily unavailable.') {
+    super(
+      ERROR_CODES.DEPENDENCY_UNAVAILABLE,
+      message,
+      HTTP_STATUS.SERVICE_UNAVAILABLE,
     );
   }
 }
@@ -74,6 +85,72 @@ export class SuspiciousResultError extends AppError {
 export class UnauthorizedError extends AppError {
   constructor(message = 'The request is not authorized.', details = []) {
     super(ERROR_CODES.UNAUTHORIZED, message, HTTP_STATUS.UNAUTHORIZED, details);
+  }
+}
+
+export class InvalidCredentialsError extends AppError {
+  constructor(message = 'Invalid credentials.') {
+    super(ERROR_CODES.INVALID_CREDENTIALS, message, HTTP_STATUS.UNAUTHORIZED);
+  }
+}
+
+export class InvalidSessionError extends AppError {
+  constructor(message = 'The session is invalid or expired.') {
+    super(ERROR_CODES.INVALID_SESSION, message, HTTP_STATUS.UNAUTHORIZED);
+  }
+}
+
+export class RefreshReuseDetectedError extends AppError {
+  constructor(message = 'Refresh-token reuse was detected.') {
+    super(
+      ERROR_CODES.REFRESH_REUSE_DETECTED,
+      message,
+      HTTP_STATUS.UNAUTHORIZED,
+    );
+  }
+}
+
+export class EmailNotVerifiedError extends AppError {
+  constructor(message = 'Email verification is required.') {
+    super(ERROR_CODES.EMAIL_NOT_VERIFIED, message, HTTP_STATUS.FORBIDDEN);
+  }
+}
+
+export class AccountLockedError extends AppError {
+  constructor(message = 'The account is temporarily locked.') {
+    super(ERROR_CODES.ACCOUNT_LOCKED, message, HTTP_STATUS.TOO_MANY_REQUESTS);
+  }
+}
+
+export class AccountUnavailableError extends AppError {
+  constructor(message = 'The account is unavailable.') {
+    super(ERROR_CODES.ACCOUNT_UNAVAILABLE, message, HTTP_STATUS.FORBIDDEN);
+  }
+}
+
+export class InvalidCsrfError extends AppError {
+  constructor(message = 'The security proof is missing or invalid.') {
+    super(ERROR_CODES.INVALID_CSRF, message, HTTP_STATUS.FORBIDDEN);
+  }
+}
+
+export class InvalidVerificationTokenError extends AppError {
+  constructor(message = 'The verification token is invalid or expired.') {
+    super(
+      ERROR_CODES.INVALID_VERIFICATION_TOKEN,
+      message,
+      HTTP_STATUS.UNAUTHORIZED,
+    );
+  }
+}
+
+export class InvalidPasswordResetTokenError extends AppError {
+  constructor(message = 'The password reset token is invalid or expired.') {
+    super(
+      ERROR_CODES.INVALID_PASSWORD_RESET_TOKEN,
+      message,
+      HTTP_STATUS.UNAUTHORIZED,
+    );
   }
 }
 

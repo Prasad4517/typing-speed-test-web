@@ -12,5 +12,7 @@ export const LIMITS = Object.freeze({
   authLoginRateLimit: 5,
   authRefreshRateLimit: 20,
   authPasswordResetRateLimit: 5,
+  authVerifyRateLimit: 10,
+  accountMutationRateLimit: 10,
   rateLimitWindow: '1 minute',
 });

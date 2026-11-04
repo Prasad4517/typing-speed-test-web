@@ -1,114 +1,142 @@
 # Backend architecture
 
-The backend is an independent Node.js application. Run every backend command from `typing-backend/`.
+The backend is an independent Fastify 5 application written in ESM JavaScript.
+Run commands from `typing-backend/`. Its public contract is versioned under
+`/api/v1`; see `docs/API.md`.
 
-The database is MySQL/MariaDB through Prisma 7 and the official MariaDB driver adapter. The current local content source is validated JSON in `src/data/`; database-backed passage storage can replace it later.
+## Runtime and dependencies
+
+- MariaDB/MySQL is the durable source of truth through Prisma 7 and
+  `@prisma/adapter-mariadb`.
+- Redis is required for distributed sensitive-endpoint rate limits and is part
+  of readiness. Authentication fails closed when Redis cannot enforce limits.
+- Node 26 LTS is the production target. The package currently requires Node 22
+  or newer; deploy on Node 26 after the platform image is available.
+- The API and notification outbox worker are separate processes. A Vercel API
+  deployment still needs a supervised/scheduled worker environment for
+  `npm run jobs:outbox` and `npm run jobs:cleanup`.
 
 ## Layering
 
-Every database-backed API follows this direction:
+Database-backed requests use:
 
 ```text
-route -> controller -> service -> repository -> database
+route -> controller -> service -> repository -> MariaDB/MySQL
 ```
 
-- **Routes** define HTTP methods, URLs, edge schemas, and route registration only.
-- **Controllers** translate validated HTTP input into service calls and return service data.
-- **Services** contain business rules. They must not import Fastify or Prisma/database clients.
-- **Repositories** contain all database queries. Only repositories may import the ORM client.
-- **Database** is accessed only through repositories.
+Routes own paths and Zod edge validation. Controllers translate HTTP metadata
+and cookies. Services own security/business state transitions. Repositories own
+Prisma queries, locks, and transactions. Services do not import Fastify or
+Prisma. File-backed passage and word repositories follow the same boundary.
 
-Files are data sources too. A file-backed repository owns loading, validation, indexing, and selection from JSON. Services must not read `src/data/` directly.
-
-Health is an exception because it has no database access: `route -> controller -> service`.
-
-## Naming conventions
-
-- Files use `kebab-case` where a multi-word filename is needed.
-- Resource files use `<resource>.routes.js`, `<resource>.controller.js`, `<resource>.service.js`, `<resource>.repository.js`, and `<resource>.schema.js`.
-- URL resources are plural, for example `/api/passages` and `/api/words`.
-- Variables and functions use `camelCase`.
-- Classes use `PascalCase`.
-
-## Responses and errors
-
-Successful responses return their data directly as JSON. Errors always use this envelope:
+Errors are domain-specific `AppError` values mapped centrally to:
 
 ```json
 {
   "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Human readable text",
+    "code": "INVALID_SESSION",
+    "message": "Safe client message",
     "details": []
   }
 }
 ```
 
-Validate all request input at the edge with Zod. Throw an `AppError` subclass for expected failures; never send raw errors from routes or controllers.
+Unexpected production failures are logged by correlation ID without credential
+headers and return a generic 500.
 
-## Constants
+## Authentication and authorization
 
-`src/constants/` is the single source for backend error codes, headers, modes, difficulty values, scoring rules, limits, and reusable messages. Constants modules import only other constants. Schemas build enums and limits from these exports so routes and services do not repeat magic values.
+### Password and account state
 
-Frontend contract constants intentionally mirror the backend because the applications are independently deployable. `docs/API.md` is the shared contract reference.
+Passwords use Argon2id with the OWASP baseline (`m=19456`, `t=2`, `p=1`).
+Validation permits password-manager strings and Unicode while bounding input
+cost. A replaceable common-password check and dummy hash verification reduce
+common-password and unknown-account attacks.
 
-## How to add a new API
+Users move through explicit states: `PENDING_VERIFICATION`, `ACTIVE`, `LOCKED`,
+`DISABLED`, and `DELETED`. Temporary lockout can only transition an already
+active account to `LOCKED`; it cannot activate pending/disabled/deleted users.
+Roles live in authoritative role tables and are enforced by backend middleware.
 
-1. Create the Zod schema.
-2. Create the repository if database access is needed.
-3. Create the service.
-4. Create the controller.
-5. Create the route file.
-6. Register the route in `src/routes/index.js`.
-7. Update the API documentation section of the project brief.
+### Access tokens
 
-Keep business logic out of routes/controllers, and never pass Fastify request/reply objects into services.
+Access tokens are 10-minute PS256 JWTs returned in JSON and kept in browser
+memory. Keys are external PEM/base64/file sources behind a key provider. The
+protected header fixes `alg`, `typ=at+jwt`, and `kid`; verification rejects
+unknown keys, weak RSA keys, a mismatched active public/private pair, or an
+unexpected token type.
 
-## Identity and timing
+Claims include `iss`, `sub`, `aud`, `iat`, `nbf`, `exp`, `jti`, `sid`, `roles`,
+`sv`, and `token_use`. Every protected request verifies the signature and then
+consults MariaDB/MySQL for current user state, session revocation/expiry,
+securityVersion, and roles. Logout, password change/reset, disabled accounts,
+and replay detection therefore invalidate authorization immediately.
 
-The frontend creates an anonymous UUID v4 once per browser and sends it as `X-Client-Id`. The backend validates it at the request edge and stores it on every test session. This is continuity, not authentication.
+### Refresh tokens and sessions
 
-The client timer starts at the first keystroke. On submit, the server accepts elapsed time only when it is no greater than the server-measured age of the session plus the configured tolerance. A pre-typing pause is therefore valid, while impossible elapsed time is rejected.
+Each signin creates a stable logical `Session` and independent family. The raw
+384-bit opaque refresh token exists only during issuance/transmission and in a
+narrow HttpOnly cookie; MariaDB/MySQL stores a SHA-256 verifier.
 
-## Authentication
+Refresh locks the stable MariaDB/MySQL session row, re-reads the token, creates one
+successor, and marks the predecessor `ROTATED` in one transaction. A second use
+of a rotated token commits session/family revocation and a durable high-priority
+audit event before returning 401. This deliberately treats a lost response plus
+retry as possible theft. No process-local mutex participates in correctness.
 
-Authentication follows the same layering rule as every other API:
+Logout resolves any known family record, including a rotated token, locks and
+revokes the stable session, and clears cookies. Logout-all and credential
+changes revoke all sessions and increment the user's monotonic securityVersion.
 
-```text
-auth.routes -> auth.controller -> auth.service -> auth.repository -> database
-```
+### CSRF, origin, and cookies
 
-- Passwords are Argon2id hashes; plaintext passwords never leave the service
-  boundary or reach the database.
-- Access JWTs contain only `sub` and `role`, are signed with HS256, and expire
-  after the configured short lifetime.
-- Refresh tokens are opaque random values. Only a SHA-256 hash is stored in
-  `RefreshToken`; each refresh atomically revokes the old record and creates a
-  replacement in the same token family.
-- Reuse of a revoked refresh token revokes that family. Logout-all revokes every
-  refresh token for the authenticated user.
-- Access and refresh tokens are HttpOnly, secure in production, `SameSite=Lax`
-  cookies with deliberately narrow API paths. State-changing cookie requests
-  enforce the configured browser origin in production.
-- `User.emailVerifiedAt` is reserved for the certificate/payment eligibility
-  policy. Do not treat a registered email as verified until an audited email
-  verification flow is added.
+The refresh cookie is HttpOnly; access JWTs are never cookies. Cookie-backed
+unsafe operations require all of:
 
-The anonymous `X-Client-Id` remains continuity for unauthenticated practice;
-it is not an account identity. Do not authorize paid certificates, payments, or
-private cross-device history using it.
+- an exact configured Origin (plus Fetch Metadata rejection for cross-site),
+- a signed double-submit proof in `X-CSRF-Token` and the readable CSRF cookie,
+- stable-session binding after authentication,
+- explicit credentialed CORS allowlisting.
 
-## Moving passages to the database
+`GET /auth/csrf` permits a same-origin Fetch Metadata request without Origin,
+which matches normal browser GET behavior. Production cookies are Secure and
+production configuration rejects non-HTTPS browser URLs.
 
-Passages currently come from `src/data/passages.seed.json` through `passages.repository.js`. The repository exposes selection operations rather than exposing the file itself. To move content to MySQL:
+## Transactions and persistence
 
-1. Add a Prisma-backed passages repository implementing `count`, `getByIndex`, `getByKey`, and `getRandom`.
-2. Add a scheduler/import script under `src/jobs/` or `src/scripts/` to populate and refresh the database.
-3. Swap the repository factory in `src/repositories/index.js`.
-4. Leave routes, controllers, and services unchanged.
+The MariaDB/MySQL forward migration extends the existing users, roles, sessions, refresh history,
+verification/reset verifiers, security audits, an encrypted notification
+outbox, and the existing typing sessions. Security-changing multi-row
+operations are transactional and use row locks or conditional updates.
 
-The passage keys must remain stable strings so existing exclusions and future certificate/audit records do not depend on database auto-increment ids.
+Verification and reset secrets are hashed in verifier tables. The copy required
+for delivery is AES-256-GCM encrypted with a separate externally supplied key.
+The bounded outbox worker claims rows with `FOR UPDATE`, supplies an
+idempotency key to the HTTPS mail adapter, leases work, and applies capped
+backoff without logging message bodies.
 
-## Certificate readiness
+`npm run jobs:cleanup` deletes bounded indexed batches after configured
+retention. Refresh history is kept beyond the usable token lifetime so cleanup
+does not weaken replay detection.
 
-Final score fields are computed and stored by the server against a single-use `TestSession`. Future certificate generation should consume a submitted session/result record, include the scoring version and verification identifier, and remain separate from the typing interaction and payment flow.
+## Rate limiting and proxy trust
+
+Sensitive operations increment independent Redis buckets for IP and normalized
+account identifier. The Lua increment/expiry is atomic; 429 responses include
+`Retry-After`. Redis connect/reconnect is bounded, outage returns 503, and
+readiness reports only a generic dependency status. Production proxy trust uses
+an explicit hop count rather than trusting arbitrary forwarding headers.
+
+## Typing integrity
+
+Anonymous practice still uses a browser UUID in `X-Client-Id`; it is continuity,
+not authorization. The server owns test text, timing bounds, single submission,
+and final scoring. Authentication changes do not weaken the existing test
+session or anti-cheat boundaries.
+
+## Verification
+
+`npm run lint`, `npm test`, `npm run db:generate`, and `npx prisma validate`
+run without external services. Migration/concurrency deployment validation must
+use dedicated real MariaDB/MySQL and Redis instances; never point tests at a
+development or production database.

@@ -72,7 +72,8 @@ export function AccountMenu({
     if (!items.length || currentIndex === -1) return;
 
     let nextIndex = currentIndex;
-    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
+    if (event.key === 'ArrowDown')
+      nextIndex = (currentIndex + 1) % items.length;
     if (event.key === 'ArrowUp') {
       nextIndex = (currentIndex - 1 + items.length) % items.length;
     }
@@ -144,6 +145,28 @@ export function AccountMenu({
             </div>
           </div>
           <div className={styles.divider} />
+          <Link
+            className={styles.item}
+            data-account-menu-item
+            href={ROUTES.dashboard}
+            onClick={closeMenu}
+            role="menuitem"
+          >
+            <Icon name="arrow-right" size={16} />
+            Dashboard
+          </Link>
+          {user.isAdmin ? (
+            <Link
+              className={styles.item}
+              data-account-menu-item
+              href={ROUTES.adminDashboard}
+              onClick={closeMenu}
+              role="menuitem"
+            >
+              <Icon name="check" size={16} />
+              Admin dashboard
+            </Link>
+          ) : null}
           <Link
             className={styles.item}
             data-account-menu-item

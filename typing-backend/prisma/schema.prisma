@@ -17,54 +17,187 @@ enum TestStatus {
   REJECTED
 }
 
-enum UserRole {
-  USER
-  ADMIN
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  LOCKED
+  DISABLED
+  DELETED
+}
+
+enum RoleName {
+  ROLE_USER
+  ROLE_ADMIN
+}
+
+enum RefreshTokenStatus {
+  ACTIVE
+  ROTATED
+  REVOKED
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
 }
 
 model User {
-  id                  String               @id @default(uuid()) @db.Char(36)
-  email               String               @unique @db.VarChar(254)
-  fullName            String               @db.VarChar(150)
-  passwordHash        String               @db.VarChar(255)
-  role                UserRole             @default(USER)
-  emailVerifiedAt     DateTime?            @db.DateTime(3)
-  createdAt           DateTime             @default(now()) @db.DateTime(3)
-  updatedAt           DateTime             @updatedAt @db.DateTime(3)
-  refreshTokens       RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
+  id                       String                   @id @default(uuid()) @db.Char(36)
+  email                    String                   @unique @db.VarChar(254)
+  normalizedEmail          String                   @unique @db.VarChar(254)
+  fullName                 String                   @db.VarChar(150)
+  passwordHash             String                   @db.VarChar(255)
+  status                   UserStatus               @default(PENDING_VERIFICATION)
+  emailVerifiedAt          DateTime?                @db.DateTime(3)
+  failedLoginAttempts      Int                      @default(0)
+  lockedUntil              DateTime?                @db.DateTime(3)
+  credentialsChangedAt     DateTime                 @default(now()) @db.DateTime(3)
+  securityVersion          Int                      @default(1)
+  lastLoginAt              DateTime?                @db.DateTime(3)
+  deletedAt                DateTime?                @db.DateTime(3)
+  version                  Int                      @default(1)
+  createdAt                DateTime                 @default(now()) @db.DateTime(3)
+  updatedAt                DateTime                 @updatedAt @db.DateTime(3)
+  roleAssignments          UserRoleAssignment[]
+  sessions                 Session[]
+  emailVerificationTokens  EmailVerificationToken[]
+  passwordResetTokens      PasswordResetToken[]
+  auditEvents              SecurityAuditEvent[]
+  notificationOutboxEvents NotificationOutbox[]
+
+  @@index([status, lockedUntil])
+  @@index([deletedAt])
+}
+
+model Role {
+  name        RoleName            @id
+  description String              @db.VarChar(255)
+  createdAt   DateTime            @default(now()) @db.DateTime(3)
+  users       UserRoleAssignment[]
+}
+
+model UserRoleAssignment {
+  userId    String   @db.Char(36)
+  roleName  RoleName
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleName], references: [name], onDelete: Restrict)
+
+  @@id([userId, roleName])
+  @@index([roleName])
+}
+
+model Session {
+  id               String         @id @default(uuid()) @db.Char(36)
+  userId           String         @db.Char(36)
+  familyId         String         @unique @default(uuid()) @db.Char(36)
+  createdAt        DateTime       @default(now()) @db.DateTime(3)
+  lastActivityAt   DateTime       @default(now()) @db.DateTime(3)
+  expiresAt        DateTime       @db.DateTime(3)
+  revokedAt        DateTime?      @db.DateTime(3)
+  revocationReason String?        @db.VarChar(80)
+  deviceLabel      String?        @db.VarChar(120)
+  userAgent        String?        @db.VarChar(512)
+  ipAddress        String?        @db.VarChar(45)
+  version          Int            @default(1)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens    RefreshToken[]
+  auditEvents      SecurityAuditEvent[]
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([familyId, revokedAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
 }
 
 model RefreshToken {
-  id                String        @id @db.Char(36)
-  familyId          String        @db.Char(36)
-  userId            String        @db.Char(36)
-  tokenHash         String        @unique @db.Char(64)
-  expiresAt         DateTime      @db.DateTime(3)
-  revokedAt         DateTime?     @db.DateTime(3)
-  replacedByTokenId String?       @unique @db.Char(36)
-  userAgent         String?       @db.VarChar(512)
-  ipAddress         String?       @db.VarChar(45)
-  createdAt         DateTime      @default(now()) @db.DateTime(3)
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  replacedByToken   RefreshToken? @relation("RefreshTokenReplacement", fields: [replacedByTokenId], references: [id], onDelete: SetNull)
-  replacedToken     RefreshToken? @relation("RefreshTokenReplacement")
+  id                String             @id @default(uuid()) @db.Char(36)
+  sessionId         String             @db.Char(36)
+  familyId          String             @db.Char(36)
+  tokenHash         String             @unique @db.Char(64)
+  status            RefreshTokenStatus @default(ACTIVE)
+  createdAt         DateTime           @default(now()) @db.DateTime(3)
+  expiresAt         DateTime           @db.DateTime(3)
+  usedAt            DateTime?          @db.DateTime(3)
+  revokedAt         DateTime?          @db.DateTime(3)
+  revocationReason  String?            @db.VarChar(80)
+  replacedByTokenId String?            @unique @db.Char(36)
+  version           Int                @default(1)
+  session           Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  replacedByToken   RefreshToken?      @relation("RefreshTokenReplacement", fields: [replacedByTokenId], references: [id], onDelete: SetNull)
+  replacedToken     RefreshToken?      @relation("RefreshTokenReplacement")
 
-  @@index([userId, createdAt])
-  @@index([familyId])
+  @@index([sessionId, status, expiresAt])
+  @@index([familyId, status])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(uuid()) @db.Char(36)
+  userId     String    @db.Char(36)
+  tokenHash  String    @unique @db.Char(64)
+  expiresAt  DateTime  @db.DateTime(3)
+  consumedAt DateTime? @db.DateTime(3)
+  createdAt  DateTime  @default(now()) @db.DateTime(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, consumedAt, expiresAt])
   @@index([expiresAt])
 }
 
 model PasswordResetToken {
-  id        String    @id @default(uuid()) @db.Char(36)
-  userId    String    @db.Char(36)
-  tokenHash String    @unique @db.Char(64)
-  expiresAt DateTime  @db.DateTime(3)
-  usedAt    DateTime? @db.DateTime(3)
-  createdAt DateTime  @default(now()) @db.DateTime(3)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String    @id @default(uuid()) @db.Char(36)
+  userId     String    @db.Char(36)
+  tokenHash  String    @unique @db.Char(64)
+  expiresAt  DateTime  @db.DateTime(3)
+  consumedAt DateTime? @db.DateTime(3)
+  createdAt  DateTime  @default(now()) @db.DateTime(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, expiresAt])
+  @@index([userId, consumedAt, expiresAt])
+  @@index([expiresAt])
+}
+
+model SecurityAuditEvent {
+  id        String    @id @default(uuid()) @db.Char(36)
+  eventType String    @db.VarChar(80)
+  userId    String?   @db.Char(36)
+  sessionId String?   @db.Char(36)
+  requestId String?   @db.VarChar(80)
+  ipAddress String?   @db.VarChar(45)
+  userAgent String?   @db.VarChar(512)
+  outcome   String    @db.VarChar(32)
+  metadata  Json?
+  createdAt DateTime  @default(now()) @db.DateTime(3)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  session   Session?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([createdAt])
+}
+
+model NotificationOutbox {
+  id          String       @id @default(uuid()) @db.Char(36)
+  userId      String?      @db.Char(36)
+  kind        String       @db.VarChar(80)
+  recipient   String       @db.VarChar(254)
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  availableAt DateTime     @default(now()) @db.DateTime(3)
+  processedAt DateTime?    @db.DateTime(3)
+  lastError   String?      @db.VarChar(1000)
+  createdAt   DateTime     @default(now()) @db.DateTime(3)
+  updatedAt   DateTime     @updatedAt @db.DateTime(3)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, availableAt, createdAt])
+  @@index([status, updatedAt])
+  @@index([userId, createdAt])
 }
 
 model TestSession {

@@ -1,14 +1,9 @@
-# Typing API contract
+# Keystroke API contract
 
-Base URL: `http://localhost:4000/api`
+Base URL: `http://localhost:4000/api/v1`
 
-All successful responses return JSON data directly. Typing-session endpoints require:
-
-```http
-X-Client-Id: <UUID v4>
-```
-
-Errors use this shape:
+All dates are UTC ISO-8601 strings. Successful responses return JSON directly.
+Errors use one stable envelope:
 
 ```json
 {
@@ -20,240 +15,168 @@ Errors use this shape:
 }
 ```
 
+Sensitive responses include `Cache-Control: no-store`. Production browser
+origins must be explicitly allowlisted and use HTTPS.
+
+## Browser security contract
+
+1. Call `GET /auth/csrf` with `credentials: "include"`.
+2. Keep the returned `csrfToken` in memory. The server also sets the matching
+   readable `keystroke_csrf` cookie.
+3. Send `X-CSRF-Token` on every unsafe auth/account request. The browser sends
+   the cookie automatically.
+4. Signin and refresh return a short-lived access JWT in JSON. Keep it only in
+   memory and send `Authorization: Bearer <token>` to protected endpoints.
+5. The opaque refresh token exists only in the `keystroke_refresh` HttpOnly
+   cookie. JavaScript never reads it.
+
+After signin/refresh, replace the in-memory CSRF proof with the new response
+value. It is signed and bound to the stable session ID. Refresh requests are
+single-flight: an uncertain/lost refresh response requires a fresh signin;
+blindly retrying the old refresh token intentionally triggers replay revocation.
+
 ## Authentication
 
-Authentication uses a 15-minute signed access JWT and a rotating opaque refresh
-token. Both are sent only in HttpOnly cookies; neither token is returned in a
-JSON response. Browser clients must use `credentials: 'include'` for auth
-requests.
+### `GET /auth/csrf`
 
-State-changing cookie requests accept only the configured frontend origins in
-production. All authentication endpoints have tighter rate limits than the
-general API limit.
+Returns `{ "csrfToken": "..." }` and sets the CSRF cookie. If a valid refresh
+cookie is present, the proof is bound to that session; otherwise it is a
+pre-authentication proof.
 
 ### `POST /auth/signup`
-
-Request:
 
 ```json
 {
   "fullName": "Ada Lovelace",
   "email": "ada@example.com",
-  "password": "a password with at least 12 characters"
+  "password": "a long password-manager password"
 }
 ```
 
-Response: `201 Created`
+Creates a `PENDING_VERIFICATION` account and queues an encrypted verification
+message. It does not create a login session.
+
+### `POST /auth/verify-email`
+
+```json
+{ "token": "the token pasted from the email" }
+```
+
+The token is single-use, short-lived, and never accepted through a query string.
+
+### `POST /auth/resend-verification`
+
+```json
+{ "email": "ada@example.com" }
+```
+
+Always returns a generic response. Outstanding verification tokens are consumed
+before a replacement is created.
+
+### `POST /auth/signin`
 
 ```json
 {
+  "email": "ada@example.com",
+  "password": "the account password",
+  "deviceLabel": "Ada's laptop"
+}
+```
+
+Successful signin creates an independent logical session and refresh family:
+
+```json
+{
+  "accessToken": "eyJ...",
+  "tokenType": "Bearer",
+  "expiresIn": 600,
   "user": {
     "id": "uuid",
     "fullName": "Ada Lovelace",
     "email": "ada@example.com",
-    "role": "USER",
-    "emailVerifiedAt": null,
-    "createdAt": "2026-10-17T00:00:00.000Z"
-  }
+    "emailVerified": true,
+    "status": "ACTIVE",
+    "roles": ["ROLE_USER"],
+    "createdAt": "2026-11-04T10:00:00.000Z"
+  },
+  "session": {
+    "id": "uuid",
+    "deviceLabel": "Ada's laptop",
+    "current": true,
+    "createdAt": "2026-11-04T10:00:00.000Z",
+    "lastActivityAt": "2026-11-04T10:00:00.000Z",
+    "expiresAt": "2026-11-18T10:00:00.000Z",
+    "revokedAt": null
+  },
+  "csrfToken": "..."
 }
 ```
 
-The password is Argon2id-hashed before storage. Duplicate emails return
-`CONFLICT`.
-
-### `POST /auth/login`
-
-Request:
-
-```json
-{ "email": "ada@example.com", "password": "the account password" }
-```
-
-Response: the same user envelope and fresh auth cookies as sign-up. An unknown
-email and an incorrect password both return the same `UNAUTHORIZED` response.
+The refresh token is never included in JSON.
 
 ### `POST /auth/refresh`
 
-Uses the refresh cookie, revokes it atomically, and issues a new access/refresh
-pair. Reusing a revoked refresh token revokes the whole token family and returns
-`UNAUTHORIZED`.
+Uses the refresh cookie and session-bound CSRF proof. The old token is marked
+`ROTATED`, a new hash is persisted atomically, and a replacement cookie/access
+JWT are issued. Reusing a rotated token revokes the entire stable session and
+invalidates its access tokens.
 
 ### `POST /auth/logout`
 
-Revokes the presented refresh session when present and clears both auth cookies.
+Uses any known refresh record—active or rotated—to revoke the stable session.
+The operation is idempotent and clears browser auth cookies.
 
 ### `POST /auth/logout-all`
 
-Requires the access cookie. Revokes every refresh session belonging to the
-current user and clears the current browser cookies.
-
-### `GET /me`
-
-Requires the access cookie. Returns the authenticated user profile.
-
-### `PATCH /me`
-
-Requires the access cookie. Currently supports changing the name shown on a
-profile and future certificate.
-
-```json
-{ "fullName": "Ada Byron Lovelace" }
-```
+Requires Bearer authentication and session-bound CSRF. Revokes every device and
+increments `securityVersion`, immediately invalidating old access JWTs.
 
 ### Password recovery
 
-`POST /auth/forgot-password` always returns a generic response to avoid email
-enumeration. `POST /auth/reset-password` accepts an opaque, single-use token
-and a new 12+ character password; it revokes every existing refresh session.
+- `POST /auth/forgot-password` — `{ "email": "ada@example.com" }`
+- `POST /auth/reset-password` — `{ "token": "...", "newPassword": "..." }`
 
-The reset-token database workflow is implemented, but live reset-email delivery
-must be connected to an approved email provider before this endpoint is exposed
-to users. The backend never returns reset tokens in API responses.
+Forgot-password responses do not disclose whether an account exists. Reset
+consumes the verifier transactionally, changes credentials, increments security
+version, revokes every session, and queues a confirmation message.
 
-## `GET /health`
+## Account endpoints
 
-Response:
+All require Bearer authentication.
 
-```json
-{
-  "status": "ok",
-  "uptime": 123.4,
-  "timestamp": "2026-10-17T00:00:00.000Z"
-}
-```
+| Method   | Path                                       | Additional requirement         |
+| -------- | ------------------------------------------ | ------------------------------ |
+| `GET`    | `/account/me`                              | None                           |
+| `PATCH`  | `/account/me`                              | CSRF; `{ "fullName": "..." }`  |
+| `POST`   | `/account/change-password`                 | CSRF; current and new password |
+| `GET`    | `/account/sessions?limit=20&cursor=<uuid>` | Bounded pagination             |
+| `DELETE` | `/account/sessions/{sessionId}`            | CSRF; ownership enforced       |
+| `GET`    | `/user/dashboard`                          | `ROLE_USER` or `ROLE_ADMIN`    |
+| `GET`    | `/admin/dashboard`                         | Authoritative `ROLE_ADMIN`     |
 
-## `GET /health/ready`
+Role checks are backend checks. UI visibility is not authorization.
 
-Checks the MySQL connection.
+## Typing APIs
 
-Response:
+Anonymous typing requests use a browser UUID in `X-Client-Id`.
 
-```json
-{ "status": "ok", "database": "ok" }
-```
+| Method | Path                          | Purpose                                 |
+| ------ | ----------------------------- | --------------------------------------- |
+| `GET`  | `/health`                     | Liveness                                |
+| `GET`  | `/health/ready`               | Generic MariaDB/MySQL + Redis readiness |
+| `GET`  | `/passages/random`            | Select a passage                        |
+| `GET`  | `/words?count=50&language=en` | Select words                            |
+| `POST` | `/tests/start`                | Create an authoritative test session    |
+| `POST` | `/tests/{testId}/submit`      | Server-verify and score a result        |
+| `GET`  | `/tests/history`              | Bounded test history                    |
+| `GET`  | `/stats/summary`              | Aggregate statistics                    |
 
-## `GET /passages/random`
+The scoring server stores the assigned text and rejects cross-client,
+duplicate, expired, or physically unverifiable submissions.
 
-Optional query parameters:
+## Status codes
 
-- `difficulty`: `easy`, `medium`, or `hard`
-- `exclude`: comma-separated stable passage keys
-
-Response:
-
-```json
-{
-  "key": "p-001",
-  "text": "...",
-  "difficulty": "medium",
-  "category": "focus",
-  "wordCount": 52,
-  "charCount": 301
-}
-```
-
-## `GET /words`
-
-Query parameters:
-
-- `count`: integer from 1 to 1000, default `50`
-- `language`: currently `en`
-
-Response:
-
-```json
-{ "words": ["time", "people", "water"] }
-```
-
-## `POST /tests/start`
-
-Timed request:
-
-```json
-{ "mode": "timed", "duration": 30 }
-```
-
-Passage request:
-
-```json
-{ "mode": "passage", "difficulty": "medium", "exclude": ["p-001"] }
-```
-
-Response:
-
-```json
-{
-  "testId": "uuid",
-  "mode": "timed",
-  "text": "the exact text to type",
-  "passageKey": null,
-  "duration": 30,
-  "expiresAt": "2026-10-17T00:05:00.000Z"
-}
-```
-
-The server stores the exact text in the session.
-
-## `POST /tests/:testId/submit`
-
-Request:
-
-```json
-{ "typedText": "the text the client typed", "elapsedMs": 30012 }
-```
-
-Response:
-
-```json
-{
-  "testId": "uuid",
-  "wpm": 74.2,
-  "rawWpm": 79.8,
-  "accuracy": 96.5,
-  "typedLength": 385,
-  "correctChars": 371,
-  "incorrectChars": 14,
-  "elapsedMs": 30012
-}
-```
-
-Submission is single-use and uses a conditional state update. The server recomputes all score fields.
-
-## `GET /tests/history`
-
-Query parameters:
-
-- `limit`: 1–50, default `20`
-- `cursor`: opaque cursor returned by the previous response
-
-Response:
-
-```json
-{
-  "entries": [],
-  "nextCursor": null
-}
-```
-
-## `GET /stats/summary`
-
-Response:
-
-```json
-{
-  "totalTests": 4,
-  "averageWpm": 72.5,
-  "bestWpm": 88.1,
-  "averageAccuracy": 97.2,
-  "trend": [],
-  "breakdownByMode": {
-    "timed": { "totalTests": 4, "averageWpm": 72.5, "averageAccuracy": 97.2 }
-  }
-}
-```
-
-## Error codes
-
-`VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), `NOT_FOUND`
-(404), `SESSION_EXPIRED` (410), `CONFLICT` (409), `SUSPICIOUS_RESULT` (422),
-`RATE_LIMITED` (429), and `INTERNAL_ERROR` (500).
+`400` validation, `401` authentication/token failure, `403` CSRF/account/role
+failure, `404` undisclosable resource, `409` state conflict, `422` suspicious
+typing result, `429` distributed rate limit, `503` required security dependency
+unavailable, and `500` unexpected failure with no internal details in production.

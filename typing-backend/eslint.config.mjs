@@ -14,6 +14,7 @@ export default defineConfig([
       globals: {
         console: 'readonly',
         fetch: 'readonly',
+        AbortSignal: 'readonly',
         process: 'readonly',
       },
     },

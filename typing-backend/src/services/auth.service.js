@@ -1,18 +1,35 @@
-import argon2 from 'argon2';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { TextEncoder } from 'node:util';
-import { SignJWT, jwtVerify } from 'jose';
+import { randomUUID } from 'node:crypto';
 
-import { AUTH } from '../constants/auth.js';
+import {
+  AUTH,
+  TOKEN_STATUSES,
+  USER_ROLES,
+  USER_STATUSES,
+} from '../constants/auth.js';
+import { LIMITS } from '../constants/limits.js';
 import { MESSAGES } from '../constants/messages.js';
-import { ConflictError, UnauthorizedError } from '../utils/app-error.js';
+import {
+  AccountLockedError,
+  AccountUnavailableError,
+  ConflictError,
+  EmailNotVerifiedError,
+  ForbiddenError,
+  InvalidCredentialsError,
+  InvalidCsrfError,
+  InvalidPasswordResetTokenError,
+  InvalidSessionError,
+  InvalidVerificationTokenError,
+  NotFoundError,
+  RefreshReuseDetectedError,
+  UnauthorizedError,
+  ValidationError,
+} from '../utils/app-error.js';
+import { createOpaqueToken, hashOpaqueToken } from './token.service.js';
 
-function hashOpaqueToken(token) {
-  return createHash('sha256').update(token).digest('hex');
-}
-
-function createOpaqueToken(byteLength) {
-  return randomBytes(byteLength).toString('base64url');
+function rolesOf(user) {
+  return (user.roleAssignments || [])
+    .map((assignment) => assignment.roleName)
+    .sort();
 }
 
 function serializeUser(user) {
@@ -20,234 +37,599 @@ function serializeUser(user) {
     id: user.id,
     fullName: user.fullName,
     email: user.email,
-    role: user.role,
-    emailVerifiedAt: user.emailVerifiedAt?.toISOString() || null,
+    emailVerified: Boolean(user.emailVerifiedAt),
+    status: user.status,
+    roles: rolesOf(user),
     createdAt: user.createdAt?.toISOString?.() || null,
   };
 }
 
-const passwordOptions = Object.freeze({
-  type: argon2.argon2id,
-  ...AUTH.passwordHashing,
-});
+function serializeSession(session, currentSessionId) {
+  return {
+    id: session.id,
+    deviceLabel: session.deviceLabel,
+    createdAt: session.createdAt?.toISOString?.() || null,
+    lastActivityAt: session.lastActivityAt?.toISOString?.() || null,
+    expiresAt: session.expiresAt?.toISOString?.() || null,
+    revokedAt: session.revokedAt?.toISOString?.() || null,
+    current: session.id === currentSessionId,
+  };
+}
 
-const dummyPasswordHash = argon2.hash(
-  'not-a-valid-user-password-for-keystroke',
-  passwordOptions,
-);
+function addMilliseconds(date, milliseconds) {
+  return new Date(date.getTime() + milliseconds);
+}
 
-async function hashPassword(password) {
-  return argon2.hash(password, passwordOptions);
+function sameRoles(left, right) {
+  return (
+    left.length === right.length &&
+    [...left].sort().every((role, index) => role === [...right].sort()[index])
+  );
+}
+
+function isPrismaUniqueConflict(error) {
+  return error?.code === 'P2002';
 }
 
 export function createAuthService({
   repository,
   config,
+  accessTokenService,
+  passwordService,
+  csrfService,
+  outboxCrypto,
+  rateLimiter,
   now = () => new Date(),
-  sendPasswordReset,
 }) {
-  const signingKey = new TextEncoder().encode(config.jwtAccessSecret);
-
-  async function issueAccessToken(user) {
-    return new SignJWT({ role: user.role })
-      .setProtectedHeader({ alg: AUTH.accessTokenAlgorithm })
-      .setSubject(user.id)
-      .setIssuer(config.jwtIssuer)
-      .setAudience(config.jwtAudience)
-      .setIssuedAt()
-      .setExpirationTime(`${config.accessTokenTtlSeconds}s`)
-      .sign(signingKey);
+  function makeAudit(eventType, metadata, extra = {}) {
+    return {
+      eventType,
+      requestId: metadata?.requestId || null,
+      ipAddress: metadata?.ipAddress || null,
+      userAgent: metadata?.userAgent || null,
+      outcome: extra.outcome || 'SUCCESS',
+      userId: extra.userId || null,
+      sessionId: extra.sessionId || null,
+      metadata: extra.metadata,
+    };
   }
 
-  async function issueSession({ user, metadata, familyId = randomUUID() }) {
-    const rawRefreshToken = createOpaqueToken(AUTH.refreshTokenBytes);
-    const createdAt = now();
-    const expiresAt = new Date(
-      createdAt.getTime() + config.refreshTokenTtlDays * 24 * 60 * 60 * 1000,
+  function makeEncryptedOutbox({
+    kind,
+    user,
+    token,
+    expiresAt,
+    now: createdAt,
+  }) {
+    const encrypted = outboxCrypto.encrypt(
+      JSON.stringify({ token, expiresAt: expiresAt.toISOString() }),
     );
-    const refreshToken = {
-      id: randomUUID(),
-      familyId,
-      userId: user.id,
-      tokenHash: hashOpaqueToken(rawRefreshToken),
-      expiresAt,
-      userAgent: metadata?.userAgent || null,
-      ipAddress: metadata?.ipAddress || null,
-    };
-
     return {
-      refreshToken,
-      tokens: {
-        accessToken: await issueAccessToken(user),
-        refreshToken: rawRefreshToken,
+      kind,
+      recipient: user.email,
+      payload: {
+        version: 1,
+        encrypted,
+        user: { id: user.id, fullName: user.fullName },
       },
+      availableAt: createdAt,
+    };
+  }
+
+  function verificationMaterial(user, requestedAt) {
+    const rawToken = createOpaqueToken(AUTH.verificationTokenBytes);
+    const expiresAt = addMilliseconds(
+      requestedAt,
+      config.emailVerificationTtlMinutes * 60 * 1000,
+    );
+    return {
+      rawToken,
+      token: { tokenHash: hashOpaqueToken(rawToken), expiresAt },
+      outbox: makeEncryptedOutbox({
+        kind: 'VERIFY_EMAIL',
+        user,
+        token: rawToken,
+        expiresAt,
+        now: requestedAt,
+      }),
+    };
+  }
+
+  function resetMaterial(user, requestedAt) {
+    const rawToken = createOpaqueToken(AUTH.passwordResetTokenBytes);
+    const expiresAt = addMilliseconds(
+      requestedAt,
+      config.passwordResetTtlMinutes * 60 * 1000,
+    );
+    return {
+      rawToken,
+      token: { tokenHash: hashOpaqueToken(rawToken), expiresAt },
+      outbox: makeEncryptedOutbox({
+        kind: 'RESET_PASSWORD',
+        user,
+        token: rawToken,
+        expiresAt,
+        now: requestedAt,
+      }),
+    };
+  }
+
+  function securityNotification(user, kind, createdAt) {
+    return {
+      kind,
+      recipient: user.email,
+      payload: {
+        version: 1,
+        user: { id: user.id, fullName: user.fullName },
+        occurredAt: createdAt.toISOString(),
+      },
+      availableAt: createdAt,
+    };
+  }
+
+  function requireCsrfSession(csrf, sessionId) {
+    if (csrf?.sid !== sessionId)
+      throw new InvalidCsrfError(MESSAGES.invalidCsrf);
+  }
+
+  async function authenticationResponse({ user, session, refreshToken }) {
+    const roles = rolesOf(user);
+    const [accessToken, csrfToken] = await Promise.all([
+      accessTokenService.issue({
+        userId: user.id,
+        sessionId: session.id,
+        roles,
+        securityVersion: user.securityVersion,
+      }),
+      Promise.resolve(csrfService.issue(session.id)),
+    ]);
+    return {
+      accessToken,
+      tokenType: 'Bearer',
+      expiresIn: config.accessTokenTtlSeconds,
+      user: serializeUser(user),
+      session: serializeSession(session, session.id),
+      csrfToken,
+      refreshToken,
     };
   }
 
   return Object.freeze({
+    async checkRateLimit({ action, metadata, identifier = '' }) {
+      const limits = {
+        signup: LIMITS.authSignUpRateLimit,
+        signin: LIMITS.authLoginRateLimit,
+        refresh: LIMITS.authRefreshRateLimit,
+        verify: LIMITS.authVerifyRateLimit,
+        resend: LIMITS.authVerifyRateLimit,
+        forgot: LIMITS.authPasswordResetRateLimit,
+        reset: LIMITS.authPasswordResetRateLimit,
+        account: LIMITS.accountMutationRateLimit,
+      };
+      await rateLimiter.check({
+        action,
+        ipAddress: metadata.ipAddress,
+        identifier,
+        limit: limits[action] || LIMITS.accountMutationRateLimit,
+        windowMs: 60_000,
+      });
+    },
+
+    async createCsrfToken({ refreshToken }) {
+      let sessionId = 'pre-auth';
+      if (refreshToken) {
+        const context = await repository.findRefreshSessionByHash(
+          hashOpaqueToken(refreshToken),
+          now(),
+        );
+        if (context) sessionId = context.sessionId;
+      }
+      const csrfToken = csrfService.issue(sessionId);
+      return { csrfToken };
+    },
+
     async signUp({ fullName, email, password, metadata }) {
-      const existingUser = await repository.findUserByEmail(email);
-      if (existingUser)
+      passwordService.validate(password);
+      if (await repository.findUserByEmail(email)) {
         throw new ConflictError(MESSAGES.emailAlreadyRegistered);
-
-      const user = await repository.createUser({
-        fullName,
-        email,
-        passwordHash: await hashPassword(password),
-      });
-      const session = await issueSession({ user, metadata });
-      await repository.createRefreshToken(session.refreshToken);
-
-      return { user: serializeUser(user), tokens: session.tokens };
-    },
-
-    async login({ email, password, metadata }) {
-      const user = await repository.findUserByEmail(email);
-      const passwordHash = user?.passwordHash || (await dummyPasswordHash);
-      const isValid = await argon2.verify(passwordHash, password);
-
-      if (!user || !isValid)
-        throw new UnauthorizedError(MESSAGES.invalidCredentials);
-
-      const session = await issueSession({ user, metadata });
-      await repository.createRefreshToken(session.refreshToken);
-
-      return { user: serializeUser(user), tokens: session.tokens };
-    },
-
-    async refresh({ refreshToken, metadata }) {
-      if (!refreshToken) throw new UnauthorizedError(MESSAGES.invalidSession);
-
-      const tokenHash = hashOpaqueToken(refreshToken);
-      const storedToken = await repository.findRefreshTokenByHash(tokenHash);
+      }
       const requestedAt = now();
-
-      if (
-        !storedToken ||
-        storedToken.revokedAt ||
-        storedToken.expiresAt <= requestedAt
-      ) {
-        if (storedToken) {
-          await repository.revokeRefreshTokenFamily({
-            familyId: storedToken.familyId,
-            revokedAt: requestedAt,
-          });
-        }
-        throw new UnauthorizedError(MESSAGES.invalidSession);
-      }
-
-      const replacement = await issueSession({
-        user: storedToken.user,
-        metadata,
-        familyId: storedToken.familyId,
-      });
-      const rotated = await repository.rotateRefreshToken({
-        tokenId: storedToken.id,
-        familyId: storedToken.familyId,
-        revokedAt: requestedAt,
-        replacement: replacement.refreshToken,
-      });
-
-      if (!rotated) {
-        await repository.revokeRefreshTokenFamily({
-          familyId: storedToken.familyId,
-          revokedAt: requestedAt,
+      const userId = randomUUID();
+      const candidateUser = { id: userId, email, fullName };
+      const verification = verificationMaterial(candidateUser, requestedAt);
+      try {
+        const user = await repository.createPendingUser({
+          user: {
+            id: userId,
+            email,
+            normalizedEmail: email,
+            fullName,
+            passwordHash: await passwordService.hash(password),
+            status: USER_STATUSES.pending,
+            credentialsChangedAt: requestedAt,
+          },
+          roleName: USER_ROLES.user,
+          verificationToken: verification.token,
+          outbox: verification.outbox,
+          audit: makeAudit('SIGNUP_SUCCESS', metadata),
         });
-        throw new UnauthorizedError(MESSAGES.invalidSession);
+        return {
+          user: serializeUser(user),
+          message:
+            'Account created. Check your email for a verification token.',
+        };
+      } catch (error) {
+        if (isPrismaUniqueConflict(error)) {
+          throw new ConflictError(MESSAGES.emailAlreadyRegistered);
+        }
+        throw error;
       }
+    },
 
+    async verifyEmail({ token, metadata }) {
+      const result = await repository.verifyEmail({
+        tokenHash: hashOpaqueToken(token),
+        now: now(),
+        audit: makeAudit('EMAIL_VERIFIED', metadata),
+      });
+      if (result.kind === 'invalid') {
+        throw new InvalidVerificationTokenError(MESSAGES.invalidVerification);
+      }
       return {
-        user: serializeUser(storedToken.user),
-        tokens: replacement.tokens,
+        user: serializeUser(result.user),
+        message:
+          result.kind === 'already_verified'
+            ? 'Email is already verified.'
+            : 'Email verified. You can now sign in.',
       };
     },
 
-    async logout({ refreshToken }) {
-      if (refreshToken) {
-        await repository.revokeRefreshTokenByHash({
-          tokenHash: hashOpaqueToken(refreshToken),
-          revokedAt: now(),
+    async resendVerification({ email, metadata }) {
+      const user = await repository.findUserByEmail(email);
+      if (user?.status === USER_STATUSES.pending) {
+        const requestedAt = now();
+        const verification = verificationMaterial(user, requestedAt);
+        await repository.replaceVerificationToken({
+          userId: user.id,
+          token: verification.token,
+          outbox: verification.outbox,
+          now: requestedAt,
+          audit: makeAudit('VERIFICATION_REQUESTED', metadata),
         });
       }
+      return { message: MESSAGES.verificationRequested };
     },
 
-    async logoutAll({ userId }) {
-      await repository.revokeAllRefreshTokensForUser({
-        userId,
-        revokedAt: now(),
+    async signIn({ email, password, deviceLabel, metadata }) {
+      let user = await repository.findUserByEmail(email);
+      if (!user) {
+        await passwordService.verifyDummy(password);
+        await repository.createAudit(
+          makeAudit('SIGNIN_FAILURE', metadata, { outcome: 'FAILURE' }),
+        );
+        throw new InvalidCredentialsError(MESSAGES.invalidCredentials);
+      }
+
+      const requestedAt = now();
+      if (
+        user.status === USER_STATUSES.locked &&
+        user.lockedUntil &&
+        user.lockedUntil <= requestedAt
+      ) {
+        user = await repository.unlockExpiredAccount({
+          userId: user.id,
+          now: requestedAt,
+        });
+      }
+
+      if (
+        user.status === USER_STATUSES.locked &&
+        user.lockedUntil > requestedAt
+      ) {
+        const lockedPasswordValid = await passwordService.verify(
+          user.passwordHash,
+          password,
+        );
+        if (!lockedPasswordValid) {
+          throw new InvalidCredentialsError(MESSAGES.invalidCredentials);
+        }
+        throw new AccountLockedError(MESSAGES.accountLocked);
+      }
+
+      const passwordValid = await passwordService.verify(
+        user.passwordHash,
+        password,
+      );
+      if (!passwordValid) {
+        await repository.recordSigninFailure({
+          userId: user.id,
+          now: requestedAt,
+          lockoutThreshold: config.lockoutThreshold,
+          lockedUntil: addMilliseconds(
+            requestedAt,
+            config.lockoutSeconds * 1000,
+          ),
+          audit: makeAudit('SIGNIN_FAILURE', metadata, {
+            outcome: 'FAILURE',
+          }),
+        });
+        throw new InvalidCredentialsError(MESSAGES.invalidCredentials);
+      }
+
+      if (user.status === USER_STATUSES.pending) {
+        throw new EmailNotVerifiedError(MESSAGES.emailNotVerified);
+      }
+      if (user.status !== USER_STATUSES.active) {
+        throw new AccountUnavailableError(MESSAGES.accountUnavailable);
+      }
+
+      const rawRefreshToken = createOpaqueToken(AUTH.refreshTokenBytes);
+      const expiresAt = addMilliseconds(
+        requestedAt,
+        config.refreshTokenTtlDays * 24 * 60 * 60 * 1000,
+      );
+      const session = {
+        id: randomUUID(),
+        familyId: randomUUID(),
+        expiresAt,
+        lastActivityAt: requestedAt,
+        deviceLabel: deviceLabel || null,
+        userAgent: metadata.userAgent,
+        ipAddress: metadata.ipAddress,
+      };
+      const created = await repository.createSession({
+        userId: user.id,
+        session,
+        refreshToken: {
+          id: randomUUID(),
+          tokenHash: hashOpaqueToken(rawRefreshToken),
+          expiresAt,
+          status: TOKEN_STATUSES.active,
+        },
+        now: requestedAt,
+        audit: makeAudit('SIGNIN_SUCCESS', metadata),
+      });
+      if (!created)
+        throw new AccountUnavailableError(MESSAGES.accountUnavailable);
+      return authenticationResponse({
+        ...created,
+        refreshToken: rawRefreshToken,
       });
     },
 
-    async authenticateAccessToken(accessToken) {
-      if (!accessToken) throw new UnauthorizedError(MESSAGES.unauthorized);
+    async refresh({ refreshToken, csrf, metadata }) {
+      if (!refreshToken) throw new InvalidSessionError(MESSAGES.invalidSession);
+      if (!csrf?.sid || csrf.sid === 'pre-auth') {
+        throw new InvalidCsrfError(MESSAGES.invalidCsrf);
+      }
+      const requestedAt = now();
+      const rawReplacement = createOpaqueToken(AUTH.refreshTokenBytes);
+      const result = await repository.rotateRefreshToken({
+        tokenHash: hashOpaqueToken(refreshToken),
+        expectedSessionId: csrf.sid,
+        replacement: {
+          id: randomUUID(),
+          tokenHash: hashOpaqueToken(rawReplacement),
+          expiresAt: addMilliseconds(
+            requestedAt,
+            config.refreshTokenTtlDays * 24 * 60 * 60 * 1000,
+          ),
+          status: TOKEN_STATUSES.active,
+        },
+        now: requestedAt,
+        metadata,
+        audit: makeAudit('TOKEN_REFRESH_SUCCESS', metadata),
+      });
+      if (result.kind === 'csrf_mismatch') {
+        throw new InvalidCsrfError(MESSAGES.invalidCsrf);
+      }
+      if (result.kind === 'reused') {
+        throw new RefreshReuseDetectedError(MESSAGES.refreshReuse);
+      }
+      if (result.kind !== 'rotated') {
+        throw new InvalidSessionError(MESSAGES.invalidSession);
+      }
+      return authenticationResponse({
+        user: result.user,
+        session: result.session,
+        refreshToken: rawReplacement,
+      });
+    },
 
-      try {
-        const { payload } = await jwtVerify(accessToken, signingKey, {
-          algorithms: [AUTH.accessTokenAlgorithm],
-          audience: config.jwtAudience,
-          issuer: config.jwtIssuer,
-        });
-
-        if (
-          typeof payload.sub !== 'string' ||
-          typeof payload.role !== 'string'
-        ) {
-          throw new Error('Access token claims are invalid.');
-        }
-
-        return { userId: payload.sub, role: payload.role };
-      } catch {
+    async authenticateAccessToken(authorization) {
+      const match = /^Bearer ([^\s]+)$/.exec(authorization || '');
+      if (!match) throw new UnauthorizedError(MESSAGES.unauthorized);
+      const claims = await accessTokenService.verify(match[1]);
+      const state = await repository.getAuthorizationState({
+        userId: claims.sub,
+        sessionId: claims.sid,
+      });
+      const currentTime = now();
+      if (
+        !state ||
+        state.user.status !== USER_STATUSES.active ||
+        state.user.securityVersion !== claims.sv ||
+        state.session.revokedAt ||
+        state.session.expiresAt <= currentTime
+      ) {
         throw new UnauthorizedError(MESSAGES.unauthorized);
       }
+      const roles = rolesOf(state.user);
+      if (!sameRoles(roles, claims.roles)) {
+        throw new UnauthorizedError(MESSAGES.unauthorized);
+      }
+      return {
+        userId: state.user.id,
+        sessionId: state.session.id,
+        roles,
+        user: state.user,
+      };
+    },
+
+    async logout({ refreshToken, csrf, metadata }) {
+      if (!refreshToken) return { message: 'Signed out.' };
+      const tokenHash = hashOpaqueToken(refreshToken);
+      const context = await repository.findRefreshTokenContext(tokenHash);
+      if (context) {
+        requireCsrfSession(csrf, context.sessionId);
+        await repository.revokeSessionByRefreshHash({
+          tokenHash,
+          now: now(),
+          reason: AUTH.sessionRevocationReasons.logout,
+          audit: makeAudit('LOGOUT', metadata),
+        });
+      }
+      return { message: 'Signed out.' };
+    },
+
+    async logoutAll({ auth, csrf, metadata }) {
+      requireCsrfSession(csrf, auth.sessionId);
+      await repository.revokeAllSessions({
+        userId: auth.userId,
+        now: now(),
+        reason: AUTH.sessionRevocationReasons.logoutAll,
+        audit: makeAudit('LOGOUT_ALL', metadata),
+      });
+      return { message: 'Signed out from all devices.' };
     },
 
     async getCurrentUser({ userId }) {
       const user = await repository.findUserById(userId);
-      if (!user) throw new UnauthorizedError(MESSAGES.unauthorized);
-      return serializeUser(user);
-    },
-
-    async updateProfile({ userId, fullName }) {
-      const user = await repository.updateUserProfile({ userId, fullName });
-      if (!user) throw new UnauthorizedError(MESSAGES.unauthorized);
-      return serializeUser(user);
-    },
-
-    async requestPasswordReset({ email }) {
-      const user = await repository.findUserByEmail(email);
-      if (!user || !sendPasswordReset) {
-        return { message: MESSAGES.passwordResetRequested };
+      if (!user || user.status !== USER_STATUSES.active) {
+        throw new UnauthorizedError(MESSAGES.unauthorized);
       }
+      return serializeUser(user);
+    },
 
-      const token = createOpaqueToken(AUTH.passwordResetTokenBytes);
-      const requestedAt = now();
-      const expiresAt = new Date(
-        requestedAt.getTime() + config.passwordResetTtlMinutes * 60 * 1000,
-      );
-      await repository.issuePasswordResetToken({
-        userId: user.id,
-        tokenHash: hashOpaqueToken(token),
-        expiresAt,
-        now: requestedAt,
+    async updateProfile({ auth, csrf, fullName }) {
+      requireCsrfSession(csrf, auth.sessionId);
+      const user = await repository.updateUserProfile({
+        userId: auth.userId,
+        fullName,
       });
-      await sendPasswordReset({
-        user: serializeUser(user),
-        token,
-        expiresAt,
-      });
+      if (!user) throw new UnauthorizedError(MESSAGES.unauthorized);
+      return serializeUser(user);
+    },
 
+    async requestPasswordReset({ email, metadata }) {
+      const user = await repository.findUserByEmail(email);
+      if (
+        user &&
+        [USER_STATUSES.active, USER_STATUSES.locked].includes(user.status)
+      ) {
+        const requestedAt = now();
+        const reset = resetMaterial(user, requestedAt);
+        await repository.issuePasswordResetToken({
+          userId: user.id,
+          token: reset.token,
+          outbox: reset.outbox,
+          now: requestedAt,
+          audit: makeAudit('PASSWORD_RESET_REQUESTED', metadata),
+        });
+      }
       return { message: MESSAGES.passwordResetRequested };
     },
 
-    async resetPassword({ token, password }) {
-      const user = await repository.resetPasswordWithToken({
+    async resetPassword({ token, newPassword, metadata }) {
+      passwordService.validate(newPassword);
+      const requestedAt = now();
+      const candidate = await repository.resetPassword({
         tokenHash: hashOpaqueToken(token),
-        passwordHash: await hashPassword(password),
+        passwordHash: await passwordService.hash(newPassword),
+        now: requestedAt,
+        audit: makeAudit('PASSWORD_RESET_COMPLETED', metadata),
+        outbox: {
+          kind: 'PASSWORD_RESET_COMPLETED',
+          payload: { version: 1, occurredAt: requestedAt.toISOString() },
+          availableAt: requestedAt,
+        },
+      });
+      if (!candidate) {
+        throw new InvalidPasswordResetTokenError(MESSAGES.invalidPasswordReset);
+      }
+      return { message: 'Password reset. Sign in again on every device.' };
+    },
+
+    async changePassword({
+      auth,
+      csrf,
+      currentPassword,
+      newPassword,
+      metadata,
+    }) {
+      requireCsrfSession(csrf, auth.sessionId);
+      passwordService.validate(newPassword);
+      const user = await repository.findUserById(auth.userId);
+      if (
+        !user ||
+        !(await passwordService.verify(user.passwordHash, currentPassword))
+      ) {
+        throw new InvalidCredentialsError(MESSAGES.invalidCredentials);
+      }
+      if (await passwordService.verify(user.passwordHash, newPassword)) {
+        throw new ValidationError('The new password must be different.');
+      }
+      const requestedAt = now();
+      const updated = await repository.changePassword({
+        userId: user.id,
+        expectedVersion: user.version,
+        passwordHash: await passwordService.hash(newPassword),
+        now: requestedAt,
+        audit: makeAudit('PASSWORD_CHANGED', metadata),
+        outbox: securityNotification(user, 'PASSWORD_CHANGED', requestedAt),
+      });
+      if (!updated)
+        throw new ConflictError('Account security state changed. Retry.');
+      return { message: 'Password changed. Sign in again on every device.' };
+    },
+
+    async listSessions({ auth, limit, cursor }) {
+      const sessions = await repository.listSessions({
+        userId: auth.userId,
+        limit,
+        cursor,
         now: now(),
       });
-      if (!user) throw new UnauthorizedError(MESSAGES.invalidPasswordReset);
+      const hasMore = sessions.length > limit;
+      const entries = sessions.slice(0, limit);
+      return {
+        sessions: entries.map((session) =>
+          serializeSession(session, auth.sessionId),
+        ),
+        nextCursor: hasMore ? entries.at(-1).id : null,
+      };
+    },
 
-      return { message: 'Your password has been reset. Please sign in.' };
+    async revokeSession({ auth, csrf, sessionId, metadata }) {
+      requireCsrfSession(csrf, auth.sessionId);
+      const revoked = await repository.revokeOwnedSession({
+        userId: auth.userId,
+        sessionId,
+        now: now(),
+        audit: makeAudit('SESSION_REVOKED', metadata),
+      });
+      if (!revoked) throw new NotFoundError('Session not found.');
+      return {
+        message: 'Session revoked.',
+        revokedCurrentSession: sessionId === auth.sessionId,
+      };
+    },
+
+    userDashboard({ auth }) {
+      return {
+        message: 'User dashboard access granted.',
+        user: serializeUser(auth.user),
+      };
+    },
+
+    adminDashboard({ auth }) {
+      if (!auth.roles.includes(USER_ROLES.admin)) {
+        throw new ForbiddenError('Administrator access is required.');
+      }
+      return {
+        message: 'Administrator dashboard access granted.',
+        user: serializeUser(auth.user),
+      };
     },
   });
 }

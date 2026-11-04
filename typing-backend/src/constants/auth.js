@@ -1,14 +1,31 @@
 export const USER_ROLES = Object.freeze({
-  user: 'USER',
-  admin: 'ADMIN',
+  user: 'ROLE_USER',
+  admin: 'ROLE_ADMIN',
+});
+
+export const USER_STATUSES = Object.freeze({
+  pending: 'PENDING_VERIFICATION',
+  active: 'ACTIVE',
+  locked: 'LOCKED',
+  disabled: 'DISABLED',
+  deleted: 'DELETED',
+});
+
+export const TOKEN_STATUSES = Object.freeze({
+  active: 'ACTIVE',
+  rotated: 'ROTATED',
+  revoked: 'REVOKED',
 });
 
 export const AUTH = Object.freeze({
-  accessTokenAlgorithm: 'HS256',
-  accessCookieName: 'keystroke_access',
+  accessTokenAlgorithm: 'PS256',
+  accessTokenType: 'at+jwt',
+  accessTokenUse: 'access',
   refreshCookieName: 'keystroke_refresh',
-  accessCookiePath: '/api',
-  refreshCookiePath: '/api/auth',
+  csrfCookieName: 'keystroke_csrf',
+  refreshCookiePath: '/api/v1/auth',
+  csrfCookiePath: '/api/v1',
+  csrfHeaderName: 'x-csrf-token',
   sameSite: 'lax',
   passwordHashing: Object.freeze({
     memoryCost: 19456,
@@ -16,5 +33,15 @@ export const AUTH = Object.freeze({
     parallelism: 1,
   }),
   refreshTokenBytes: 48,
+  verificationTokenBytes: 32,
   passwordResetTokenBytes: 48,
+  csrfNonceBytes: 32,
+  sessionRevocationReasons: Object.freeze({
+    logout: 'LOGOUT',
+    logoutAll: 'LOGOUT_ALL',
+    refreshReuse: 'REFRESH_TOKEN_REUSE',
+    passwordChanged: 'PASSWORD_CHANGED',
+    passwordReset: 'PASSWORD_RESET',
+    userRevoked: 'USER_REVOKED',
+  }),
 });

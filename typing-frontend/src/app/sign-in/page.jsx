@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 
 import { Spinner } from '@/common-components';
 import { AuthPage } from '@/features/auth';
+import { AUTH_VIEW } from '@/features/auth/auth.constants';
 
 export const metadata = {
   title: 'Sign in',
@@ -11,7 +12,7 @@ export const metadata = {
 export default function SignInPage() {
   return (
     <Suspense fallback={<Spinner label="Loading sign in" />}>
-      <AuthPage />
+      <AuthPage view={AUTH_VIEW.signIn} />
     </Suspense>
   );
 }

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "dev": "node --watch src/server.js",
@@ -12,14 +12,16 @@
     "postinstall": "npm run db:generate",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "node --test test/api.test.js test/scoring.test.js",
+    "test": "NODE_ENV=test DATABASE_URL=mysql://test:test@127.0.0.1:3306/keystroke_test node --test test/*.test.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
-    "smoke": "node scripts/smoke.js"
+    "smoke": "node scripts/smoke.js",
+    "jobs:outbox": "node src/jobs/outbox-worker.js",
+    "jobs:cleanup": "node src/jobs/security-cleanup.js"
   },
   "dependencies": {
     "@fastify/cookie": "^10.0.1",
@@ -35,6 +37,7 @@
     "jose": "^6.2.12",
     "mariadb": "^3.5.4",
     "pino-pretty": "^13.1.2",
+    "redis": "^5.9.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
@@ -42,5 +45,8 @@
     "eslint": "^9.39.5",
     "prettier": "^3.6.2",
     "prisma": "^7.10.1"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
   }
 }

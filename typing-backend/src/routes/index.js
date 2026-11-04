@@ -6,8 +6,8 @@ import testsRoutes from './tests.routes.js';
 import wordsRoutes from './words.routes.js';
 
 export default async function routes(app, options) {
-  const { controllers } = options;
-  await app.register(authRoutes, { controllers });
+  const { controllers, csrfService } = options;
+  await app.register(authRoutes, { controllers, csrfService });
   await app.register(healthRoutes, { controllers });
   await app.register(passagesRoutes, { controllers });
   await app.register(wordsRoutes, { controllers });

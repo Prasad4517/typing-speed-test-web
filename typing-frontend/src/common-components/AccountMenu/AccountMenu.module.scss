@@ -122,3 +122,14 @@
   font-size: 12px;
   line-height: 1.4;
 }
+
+@media (max-width: 420px) {
+  .guest {
+    width: 44px;
+    padding: 0;
+  }
+
+  .guest > span:last-child {
+    display: none;
+  }
+}

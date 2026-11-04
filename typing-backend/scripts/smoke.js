@@ -1,10 +1,10 @@
-import 'dotenv/config';
+import '../src/config/load-env.js';
 
 import { randomUUID } from 'node:crypto';
 
 const baseUrl =
   process.env.SMOKE_BASE_URL ||
-  `http://localhost:${process.env.PORT || 4000}/api`;
+  `http://localhost:${process.env.PORT || 4000}/api/v1`;
 const clientId = randomUUID();
 
 async function call(path, options = {}) {

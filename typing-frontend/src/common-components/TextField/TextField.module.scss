@@ -10,6 +10,9 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.inputWrap {
+  position: relative;
+}
 .input {
   width: 100%;
   min-height: 46px;
@@ -19,9 +22,19 @@
   color: var(--text);
   background: var(--surface);
 }
+.inputWrap .input:has(+ .adornment) {
+  padding-right: 76px;
+}
 .input:focus {
   border-color: var(--accent-strong);
   outline: none;
+}
+.adornment {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  display: inline-flex;
+  transform: translateY(-50%);
 }
 .help {
   color: var(--text-subtle);

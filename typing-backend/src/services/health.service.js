@@ -11,7 +11,7 @@ export function createHealthService({ readyCheck }) {
     getHealth,
     async getReadiness() {
       await readyCheck();
-      return { status: 'ok', database: 'ok' };
+      return { status: 'ok', dependencies: 'ok' };
     },
   });
 }

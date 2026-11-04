@@ -1,13 +1,26 @@
-import { LIMITS } from '../constants/limits.js';
 import {
+  changePasswordBodySchema,
   forgotPasswordBodySchema,
-  loginBodySchema,
+  resendVerificationBodySchema,
   resetPasswordBodySchema,
+  sessionParamsSchema,
+  sessionsQuerySchema,
+  signInBodySchema,
   signUpBodySchema,
   updateProfileBodySchema,
+  verifyEmailBodySchema,
 } from '../schemas/auth.schema.js';
-import { validateBody } from '../utils/validate.js';
-import { validateStateChangingOrigin } from '../utils/request-origin.js';
+import {
+  validateBody,
+  validateParams,
+  validateQuery,
+} from '../utils/validate.js';
+import {
+  createValidateCsrf,
+  createValidateLogoutCsrf,
+  validateCsrfBootstrapOrigin,
+  validateStateChangingOrigin,
+} from '../utils/request-origin.js';
 
 function withBody(schema) {
   return async (request) => {
@@ -15,91 +28,139 @@ function withBody(schema) {
   };
 }
 
-export default async function authRoutes(app, { controllers }) {
-  const requireAuth = (request) => controllers.auth.authenticate(request);
+function withParams(schema) {
+  return async (request) => {
+    request.params = validateParams(request, schema);
+  };
+}
 
-  app.post('/auth/signup', {
-    config: {
-      rateLimit: {
-        max: LIMITS.authSignUpRateLimit,
-        timeWindow: LIMITS.rateLimitWindow,
-      },
-    },
-    preHandler: [validateStateChangingOrigin, withBody(signUpBodySchema)],
-    handler: controllers.auth.signUp,
+function withQuery(schema) {
+  return async (request) => {
+    request.query = validateQuery(request, schema);
+  };
+}
+
+export default async function authRoutes(app, { controllers, csrfService }) {
+  const auth = controllers.auth;
+  const requireAuth = (request) => auth.authenticate(request);
+  const validateCsrf = createValidateCsrf(csrfService);
+  const validateLogoutCsrf = createValidateLogoutCsrf(csrfService);
+  const publicMutation = (schema, action) => [
+    withBody(schema),
+    validateStateChangingOrigin,
+    validateCsrf,
+    auth.rateLimit(action),
+  ];
+
+  app.get('/auth/csrf', {
+    preHandler: [validateCsrfBootstrapOrigin],
+    handler: auth.csrf,
   });
 
-  app.post('/auth/login', {
-    config: {
-      rateLimit: {
-        max: LIMITS.authLoginRateLimit,
-        timeWindow: LIMITS.rateLimitWindow,
-      },
-    },
-    preHandler: [validateStateChangingOrigin, withBody(loginBodySchema)],
-    handler: controllers.auth.login,
+  app.post('/auth/signup', {
+    preHandler: publicMutation(signUpBodySchema, 'signup'),
+    handler: auth.signUp,
+  });
+
+  app.post('/auth/signin', {
+    preHandler: publicMutation(signInBodySchema, 'signin'),
+    handler: auth.signIn,
   });
 
   app.post('/auth/refresh', {
-    config: {
-      rateLimit: {
-        max: LIMITS.authRefreshRateLimit,
-        timeWindow: LIMITS.rateLimitWindow,
-      },
-    },
-    preHandler: [validateStateChangingOrigin],
-    handler: controllers.auth.refresh,
+    preHandler: [
+      validateStateChangingOrigin,
+      validateCsrf,
+      auth.rateLimit('refresh'),
+    ],
+    handler: auth.refresh,
   });
 
   app.post('/auth/logout', {
-    preHandler: [validateStateChangingOrigin],
-    handler: controllers.auth.logout,
+    preHandler: [validateStateChangingOrigin, validateLogoutCsrf],
+    handler: auth.logout,
   });
 
   app.post('/auth/logout-all', {
-    preHandler: [validateStateChangingOrigin, requireAuth],
-    handler: controllers.auth.logoutAll,
-  });
-
-  app.get('/me', {
-    preHandler: [requireAuth],
-    handler: controllers.auth.getMe,
-  });
-
-  app.patch('/me', {
     preHandler: [
       validateStateChangingOrigin,
+      validateCsrf,
       requireAuth,
-      withBody(updateProfileBodySchema),
+      auth.rateLimit('account'),
     ],
-    handler: controllers.auth.updateMe,
+    handler: auth.logoutAll,
+  });
+
+  app.post('/auth/verify-email', {
+    preHandler: publicMutation(verifyEmailBodySchema, 'verify'),
+    handler: auth.verifyEmail,
+  });
+
+  app.post('/auth/resend-verification', {
+    preHandler: publicMutation(resendVerificationBodySchema, 'resend'),
+    handler: auth.resendVerification,
   });
 
   app.post('/auth/forgot-password', {
-    config: {
-      rateLimit: {
-        max: LIMITS.authPasswordResetRateLimit,
-        timeWindow: LIMITS.rateLimitWindow,
-      },
-    },
-    preHandler: [
-      validateStateChangingOrigin,
-      withBody(forgotPasswordBodySchema),
-    ],
-    handler: controllers.auth.requestPasswordReset,
+    preHandler: publicMutation(forgotPasswordBodySchema, 'forgot'),
+    handler: auth.requestPasswordReset,
   });
 
   app.post('/auth/reset-password', {
-    config: {
-      rateLimit: {
-        max: LIMITS.authPasswordResetRateLimit,
-        timeWindow: LIMITS.rateLimitWindow,
-      },
-    },
+    preHandler: publicMutation(resetPasswordBodySchema, 'reset'),
+    handler: auth.resetPassword,
+  });
+
+  app.get('/account/me', {
+    preHandler: [requireAuth],
+    handler: auth.getMe,
+  });
+
+  app.patch('/account/me', {
     preHandler: [
+      withBody(updateProfileBodySchema),
       validateStateChangingOrigin,
-      withBody(resetPasswordBodySchema),
+      validateCsrf,
+      requireAuth,
+      auth.rateLimit('account'),
     ],
-    handler: controllers.auth.resetPassword,
+    handler: auth.updateMe,
+  });
+
+  app.post('/account/change-password', {
+    preHandler: [
+      withBody(changePasswordBodySchema),
+      validateStateChangingOrigin,
+      validateCsrf,
+      requireAuth,
+      auth.rateLimit('account'),
+    ],
+    handler: auth.changePassword,
+  });
+
+  app.get('/account/sessions', {
+    preHandler: [withQuery(sessionsQuerySchema), requireAuth],
+    handler: auth.listSessions,
+  });
+
+  app.delete('/account/sessions/:sessionId', {
+    preHandler: [
+      withParams(sessionParamsSchema),
+      validateStateChangingOrigin,
+      validateCsrf,
+      requireAuth,
+      auth.rateLimit('account'),
+    ],
+    handler: auth.revokeSession,
+  });
+
+  app.get('/user/dashboard', {
+    preHandler: [requireAuth],
+    handler: auth.userDashboard,
+  });
+
+  app.get('/admin/dashboard', {
+    preHandler: [requireAuth],
+    handler: auth.adminDashboard,
   });
 }

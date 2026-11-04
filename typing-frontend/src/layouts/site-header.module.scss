@@ -48,9 +48,10 @@
 .menu {
   display: none;
 }
-@media (max-width: 720px) {
+@media (max-width: 980px) {
   .inner {
     min-height: 68px;
+    gap: var(--space-3);
   }
   .nav {
     position: absolute;

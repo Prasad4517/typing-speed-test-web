@@ -1,12 +1,13 @@
 import { MESSAGES } from '@/constants/messages';
 import { PRIMARY_NAVIGATION } from '@/constants/navigation';
 import { TEST_DURATIONS } from '@/constants/test-config';
+import { API } from '@/constants/api';
 
 export const siteConfig = Object.freeze({
   name: MESSAGES.site.name,
   shortName: MESSAGES.site.shortName,
   description: MESSAGES.site.description,
-  apiBaseUrl: process.env.NEXT_PUBLIC_API_URL,
+  apiBaseUrl: API.basePath,
   navItems: PRIMARY_NAVIGATION,
   testDurations: TEST_DURATIONS,
   defaultDuration: 30,

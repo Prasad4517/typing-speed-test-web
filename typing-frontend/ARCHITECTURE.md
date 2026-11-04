@@ -2,6 +2,16 @@
 
 The frontend is JavaScript/JSX only. Next.js route files under `src/app/` stay thin and compose feature components. Interactive leaves use `'use client'`; static content remains server-rendered where possible.
 
+## Runtime boundary
+
+Browser API calls use the same-origin `/api/v1` path. `BACKEND_INTERNAL_URL`
+is a server-only origin consumed by the Next.js rewrite and must be set
+explicitly for production builds; only development and tests default to
+`http://127.0.0.1:4000`. Deploy the frontend on HTTPS because production sends
+HSTS. The current CSP permits inline framework scripts/styles for Next.js
+compatibility; migrating to request-scoped nonces is a documented future
+hardening step, so this policy must not be described as a strict CSP.
+
 ## Boundaries
 
 ```text

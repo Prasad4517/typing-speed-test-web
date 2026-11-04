@@ -1,42 +1,48 @@
 import { AUTH } from '../constants/auth.js';
 import { config } from '../config/env.js';
 
-function options({ path, maxAge }) {
+function options({ path, maxAge, httpOnly }) {
   return {
-    httpOnly: true,
+    httpOnly,
     maxAge,
     path,
-    sameSite: AUTH.sameSite,
+    sameSite: config.authCookieSameSite,
     secure: config.authCookieSecure,
+    ...(config.authCookieDomain ? { domain: config.authCookieDomain } : {}),
   };
 }
 
-export function setAuthCookies(reply, tokens) {
-  reply.setCookie(
-    AUTH.accessCookieName,
-    tokens.accessToken,
-    options({
-      path: AUTH.accessCookiePath,
-      maxAge: config.accessTokenTtlSeconds,
-    }),
-  );
+export function setRefreshCookie(reply, refreshToken) {
   reply.setCookie(
     AUTH.refreshCookieName,
-    tokens.refreshToken,
+    refreshToken,
     options({
       path: AUTH.refreshCookiePath,
       maxAge: config.refreshTokenTtlDays * 24 * 60 * 60,
+      httpOnly: true,
+    }),
+  );
+}
+
+export function setCsrfCookie(reply, csrfToken) {
+  reply.setCookie(
+    AUTH.csrfCookieName,
+    csrfToken,
+    options({
+      path: AUTH.csrfCookiePath,
+      maxAge: config.refreshTokenTtlDays * 24 * 60 * 60,
+      httpOnly: false,
     }),
   );
 }
 
 export function clearAuthCookies(reply) {
   reply.clearCookie(
-    AUTH.accessCookieName,
-    options({ path: AUTH.accessCookiePath }),
+    AUTH.refreshCookieName,
+    options({ path: AUTH.refreshCookiePath, httpOnly: true }),
   );
   reply.clearCookie(
-    AUTH.refreshCookieName,
-    options({ path: AUTH.refreshCookiePath }),
+    AUTH.csrfCookieName,
+    options({ path: AUTH.csrfCookiePath, httpOnly: false }),
   );
 }

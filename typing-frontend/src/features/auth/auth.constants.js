@@ -58,7 +58,14 @@ export const AUTH_COPY = Object.freeze({
 
 export const AUTH_VALIDATION = Object.freeze({
   passwordMinLength: 12,
-  passwordMaxLength: 128,
+  passwordMaxLength: 256,
   fullNameMaxLength: 150,
   emailMaxLength: 254,
+  tokenMinLength: 40,
+  tokenMaxLength: 256,
+});
+
+export const AUTH_ROLE = Object.freeze({
+  user: 'ROLE_USER',
+  admin: 'ROLE_ADMIN',
 });
